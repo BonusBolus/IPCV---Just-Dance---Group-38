@@ -1,0 +1,11 @@
+numpy>=1.26
+opencv-python>=4.9
+pygame>=2.6          # audio playback only; the game runs silently without it
+scipy>=1.11          # Hungarian assignment (linear_sum_assignment) for Task 3
+
+# Task 1/2 backend: uncomment once chosen. Check wheel availability for your Python version
+# (Python 3.11/3.12 is the safest choice for MediaPipe).
+# mediapipe>=0.10.14
+
+# development
+pytest>=8
