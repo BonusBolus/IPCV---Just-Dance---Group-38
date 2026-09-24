@@ -65,8 +65,9 @@ class SongPlayer:
     def time(self) -> float:
         """Seconds since the song started (0 before it starts).
 
-        TODO(T5): measure the drift between get_pos() and perf_counter() and the audio output
-        latency; this determines how precisely moves can be scored.
+        Uses the mixer's playback position (so the song is the master clock), falling back
+        to perf_counter when there is no audio. Worth measuring for the report: drift between
+        get_pos() and perf_counter() over a full song, and the audio output latency.
         """
         if self._t0 is None:
             return 0.0

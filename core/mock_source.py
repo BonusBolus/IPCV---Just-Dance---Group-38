@@ -1,42 +1,52 @@
-"""Synthetic dancers for development without a second person or finished CV modules.
+"""Synthetic dancers, plus the 2D body model used to build the default choreography.
 
-Press M in the game to toggle. It produces PoseObs/FaceObs in exactly the format Tasks 1/2 must
-deliver, including jitter noise, so Tasks 3/4/5 can develop and test independently.
-The "cross" scenario makes the two dancers swap places: the identity-switch test case for Task 3.
+Press M in the game to toggle mock players. They produce PoseObs/FaceObs in exactly the format
+Tasks 1/2 deliver, including jitter noise, so Tasks 3/4/5 can be developed and tested without
+a second person. The "cross" scenario makes the two dancers swap places: the identity-switch
+test case for Task 3.
 """
 from __future__ import annotations
 
 import numpy as np
 
-from core.types import KP, FaceObs, PoseObs
+from core.types import KP, NUM_KEYPOINTS, FaceObs, PoseObs
 
 # Neutral standing pose in "body units": origin at hip centre, y down, 1.0 = torso length.
-# Coordinates are for the mirrored (selfie) view, so the person's left side is at negative x.
+# Same convention as the pose model: for a person facing the camera, left_* is on the image right.
 _BASE = np.array([
     [0.00, -1.45],                   # nose
-    [-0.07, -1.52], [0.07, -1.52],   # eyes
-    [-0.15, -1.48], [0.15, -1.48],   # ears
-    [-0.45, -1.00], [0.45, -1.00],   # shoulders
-    [-0.55, -0.50], [0.55, -0.50],   # elbows (overwritten by the arm angles)
-    [-0.60, -0.05], [0.60, -0.05],   # wrists (overwritten by the arm angles)
-    [-0.25, 0.00], [0.25, 0.00],     # hips
-    [-0.27, 0.80], [0.27, 0.80],     # knees
-    [-0.28, 1.60], [0.28, 1.60],     # ankles
+    [0.07, -1.52], [-0.07, -1.52],   # eyes (left, right)
+    [0.15, -1.48], [-0.15, -1.48],   # ears
+    [0.45, -1.00], [-0.45, -1.00],   # shoulders
+    [0.55, -0.50], [-0.55, -0.50],   # elbows (overwritten by the arm angles)
+    [0.60, -0.05], [-0.60, -0.05],   # wrists (overwritten by the arm angles)
+    [0.25, 0.00], [-0.25, 0.00],     # hips
+    [0.27, 0.80], [-0.27, 0.80],     # knees
+    [0.28, 1.60], [-0.28, 1.60],     # ankles
 ], dtype=np.float32)
 _UPPER_ARM, _FOREARM = 0.50, 0.47
+_UPPER_BODY = slice(0, KP["left_knee"])   # nose .. hips
 
 
-def body_pose(arm_left_deg: float, arm_right_deg: float, bob: float = 0.0) -> np.ndarray:
-    """(17, 2) keypoints in body units. Arm angles: 0 = hanging, 90 = T-pose, 180 = straight up."""
+def body_pose(left=(20.0, 20.0), right=(20.0, 20.0), squat: float = 0.0, bob: float = 0.0) -> np.ndarray:
+    """(17, 2) keypoints in body units.
+
+    `left`/`right` = (upper-arm angle, forearm angle) in degrees, measured from hanging straight
+    down, positive = outward: 0 = hanging, 90 = horizontal (T-pose), 180 = straight up; a forearm
+    angle > 180 bends the forearm inwards. `squat` in [0, 1] lowers the hips, `bob` shifts the
+    upper body down a little (groove on the beat).
+    """
     kp = _BASE.copy()
-    kp[:KP["left_knee"], 1] += bob              # upper body goes down (squat bob)
-    kp[KP["left_knee"]:KP["left_ankle"], 1] += bob / 2
-    for side, angle, sign in (("left", arm_left_deg, -1.0), ("right", arm_right_deg, 1.0)):
-        th = np.radians(angle)
-        direction = np.array([sign * np.sin(th), np.cos(th)], np.float32)
+    kp[_UPPER_BODY, 1] += 0.45 * squat + bob
+    for side, sign in (("left", 1.0), ("right", -1.0)):
+        kp[KP[f"{side}_knee"], 0] += sign * 0.12 * squat
+        kp[KP[f"{side}_knee"], 1] += 0.30 * squat + bob / 2
+    for side, (upper, fore), sign in (("left", left, 1.0), ("right", right, -1.0)):
+        u, f = np.radians(upper), np.radians(fore)
         shoulder = kp[KP[f"{side}_shoulder"]]
-        kp[KP[f"{side}_elbow"]] = shoulder + direction * _UPPER_ARM
-        kp[KP[f"{side}_wrist"]] = shoulder + direction * (_UPPER_ARM + _FOREARM)
+        elbow = shoulder + _UPPER_ARM * np.array([sign * np.sin(u), np.cos(u)], np.float32)
+        kp[KP[f"{side}_elbow"]] = elbow
+        kp[KP[f"{side}_wrist"]] = elbow + _FOREARM * np.array([sign * np.sin(f), np.cos(f)], np.float32)
     return kp
 
 
@@ -48,38 +58,48 @@ def to_image(body_kp: np.ndarray, center: tuple[float, float], scale: float, asp
     return out
 
 
-def dance_angles(t: float, phase: float = 0.0) -> tuple[float, float, float]:
-    """A simple looping dance: (left arm deg, right arm deg, bob) at time t."""
-    left = 90 + 80 * np.sin(2 * np.pi * 0.5 * t + phase)
-    right = 90 + 80 * np.sin(2 * np.pi * 0.5 * t + phase + np.pi / 2)
+def dance_pose(t: float, phase: float = 0.0) -> np.ndarray:
+    """A simple looping free-style dance in body units."""
+    a = 90 + 80 * np.sin(2 * np.pi * 0.5 * t + phase)
+    b = 90 + 80 * np.sin(2 * np.pi * 0.5 * t + phase + np.pi / 2)
     bob = 0.08 * max(0.0, np.sin(2 * np.pi * 1.0 * t + phase))
-    return float(left), float(right), float(bob)
+    return body_pose((a, a), (b, b), bob=bob)
 
 
 class MockPoseSource:
+    """Synthetic players. Detection order is shuffled (like a real detector), but
+    `true_ids` of the last `generate` call gives the ground-truth identity of each detection."""
+
     SCENARIOS = ("dance", "cross")
 
-    def __init__(self, num_players: int = 2, scenario: str = "dance",
-                 noise: float = 0.003, seed: int = 0, scale: float = 0.2):
+    def __init__(self, num_players: int = 2, scenario: str = "dance", noise: float = 0.003,
+                 seed: int = 0, scale: float = 0.2, dropout: float = 0.0, shuffle: bool = True):
         assert scenario in self.SCENARIOS
         self.num_players = num_players
         self.scenario = scenario
         self.noise = noise
         self.scale = scale
+        self.dropout = dropout        # probability that a player is not detected in a frame
+        self.shuffle = shuffle
+        self.true_ids: list[int] = []
         self._rng = np.random.default_rng(seed)
 
     def generate(self, t: float, image_shape) -> tuple[list[PoseObs], list[FaceObs]]:
         h, w = image_shape[:2]
         aspect = w / h
-        poses, faces = [], []
+        items = []
         for i in range(self.num_players):
-            left, right, bob = dance_angles(t, phase=i * 2.2)
-            kp = to_image(body_pose(left, right, bob), (self._center_x(i, t), 0.62), self.scale, aspect)
+            if self.dropout and self._rng.random() < self.dropout:
+                continue
+            kp = to_image(dance_pose(t, phase=i * 2.2), (self._center_x(i, t), 0.62), self.scale, aspect)
             kp += self._rng.normal(0.0, self.noise, kp.shape)
-            conf = np.full(len(kp), 0.9, np.float32)
-            poses.append(PoseObs(kp.astype(np.float32), conf, timestamp=t))
-            faces.append(self._face(kp, aspect, t))
-        return poses, faces
+            conf = np.full(NUM_KEYPOINTS, 0.9, np.float32)
+            items.append((i + 1, PoseObs(kp.astype(np.float32), conf, timestamp=t, aspect=aspect),
+                          self._face(kp, aspect, t)))
+        if self.shuffle:
+            self._rng.shuffle(items)
+        self.true_ids = [pid for pid, _, _ in items]
+        return [p for _, p, _ in items], [f for _, _, f in items]
 
     def _center_x(self, i: int, t: float) -> float:
         n = self.num_players

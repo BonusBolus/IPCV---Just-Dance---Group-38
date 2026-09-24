@@ -2,7 +2,7 @@
 import numpy as np
 
 from core.config import Config
-from core.image_utils import overlay_rgba
+from core.image_utils import overlay_rgba, warp_rgba_affine
 from core.types import EventType, FrameData, GameEvent, Grade
 from gameplay.choreography import Choreography
 from gameplay.game_state import GameState
@@ -19,31 +19,35 @@ def _app() -> App:
     cfg.game.enable_audio = False
     cfg.game.lobby_confirm_s = 0.1
     cfg.game.countdown_s = 0.1
-    return App(cfg, use_mock=True)
+    return App(cfg, use_mock=True, load_models=False)
 
 
 def test_pipeline_runs_through_all_phases():
     app = _app()
     app.handle_key(ord(" "))  # START -> LOBBY
     t = 0.0
+    for i in range(20):
+        t += 1 / 30
+        app.process_frame(_frame(i), now=t)
+    assert len(app.tracker.active_players()) == 2
+    app.phases.ready = {1, 2}  # mock dancers don't raise their arms on command
     seen = set()
-    for i in range(30):
+    for i in range(20, 60):
         t += 1 / 30
         canvas = app.process_frame(_frame(i), now=t)
         seen.add(app.phases.phase)
         assert canvas.shape[1] == app.cfg.display.width
-    assert Phase.PLAYING in seen          # mock players were detected and the countdown ran
-    assert len(app.tracker.active_players()) == 2
+    assert Phase.PLAYING in seen
     app.phases.go(Phase.RESULTS, t)
     app.process_frame(_frame(99), now=t)
     assert not app.guard.failures, app.guard.last_error
 
 
 def test_choreography_roundtrip(tmp_path):
-    c = Choreography.placeholder(duration=10.0)
+    c = Choreography.synthetic(duration=20.0)
     c.save(tmp_path / "c.json")
     d = Choreography.load(tmp_path / "c.json")
-    assert len(d.times) == len(c.times) and len(d.moves) == len(c.moves)
+    assert len(d.times) == len(c.times) and len(d.moves) == len(c.moves) and d.bpm == c.bpm
     ref = d.reference_at(5.0)
     assert ref is not None and ref.keypoints.shape == (17, 2)
     assert d.reference_at(-1.0) is None
@@ -63,9 +67,10 @@ def test_game_state_winner_and_combo():
     assert gs.winner() is None  # tie
 
 
-def test_overlay_rgba_clips_at_border():
+def test_stickers_clip_at_border():
     img = np.zeros((100, 100, 3), np.uint8)
     sticker = np.full((40, 40, 4), 255, np.uint8)
     overlay_rgba(img, sticker, center=(0, 0), scale=1.0, angle_deg=30)
     overlay_rgba(img, sticker, center=(500, 500))  # fully outside: no error
-    assert img[0, 0].sum() > 0
+    warp_rgba_affine(img, sticker, [[0, 0], [40, 0], [0, 40]], [[90, 90], [130, 95], [88, 130]])
+    assert img[0, 0].sum() > 0 and img[95, 95].sum() > 0

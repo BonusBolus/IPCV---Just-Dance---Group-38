@@ -1,11 +1,10 @@
-numpy>=1.26
-opencv-python>=4.9
-pygame>=2.6          # audio playback only; the game runs silently without it
-scipy>=1.11          # Hungarian assignment (linear_sum_assignment) for Task 3
+# Tested with Python 3.13 on Windows 11 (versions below = tested versions).
+numpy>=2.0                        # tested 2.4.2
+opencv-contrib-python>=4.9        # tested 5.0.0; mediapipe depends on the contrib build.
+                                  # Do NOT also install opencv-python: both write the same cv2 package.
+mediapipe>=1.0.1                  # PoseLandmarker + FaceLandmarker (Tasks API), tested 1.0.1
+scipy>=1.11                       # Hungarian assignment for identity tracking, tested 1.17.0
+pygame>=2.6                       # audio playback only (game runs silently without it), tested 2.6.1
 
-# Task 1/2 backend: uncomment once chosen. Check wheel availability for your Python version
-# (Python 3.11/3.12 is the safest choice for MediaPipe).
-# mediapipe>=0.10.14
-
-# development
-pytest>=8
+# development / evaluation
+pytest>=8                         # tested 9.1.1

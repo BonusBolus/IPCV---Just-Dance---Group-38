@@ -220,3 +220,5 @@ __marimo__/
 # Project
 recordings/
 logs/
+# model weights: download with python -m tools.download_models
+assets/models/

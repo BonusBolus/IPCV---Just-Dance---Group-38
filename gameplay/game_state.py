@@ -17,6 +17,8 @@ class PlayerStats:
     grades: Counter = field(default_factory=Counter)
     last_grade: Grade | None = None
     last_grade_t: float = float("-inf")
+    live_match: float | None = None   # current similarity to the model (0..1), None = not visible
+    bonuses: int = 0                  # gold moves, duets, high fives, swaps
 
     def register_grade(self, grade: Grade, t: float, bonus: int = 0) -> None:
         self.grades[grade] += 1
@@ -47,8 +49,9 @@ class GameState:
             points = int(ev.data.get("points", 0))
             if ev.type is EventType.GRADE and ev.grade is not None:
                 stats.register_grade(ev.grade, ev.t, bonus=points)
-            else:
+            elif points:
                 stats.score += points
+                stats.bonuses += 1
 
     def leader(self) -> int | None:
         """pid with the highest score; None when empty or tied."""

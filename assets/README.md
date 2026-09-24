@@ -1,10 +1,10 @@
 # Assets
 
-| File | Used by | Notes |
+| File | Used by | How to get it |
 |---|---|---|
-| `song.mp3` | scene/audio.py | Use a royalty-free song (the video is shared). Missing = silent mode. |
-| `choreography.json` | gameplay/choreography.py | Made with `python -m tools.extract_reference`. Missing = placeholder dance. |
-| `model_dance.mp4` | tools/extract_reference.py | Video of the model dancer (one of us). |
-| `models/pose_landmarker.task` | pose/pose_estimator.py | Model weights (Task 2); document the download URL + version in the main README. |
-| `models/face_landmarker.task` | face/face_tracker.py | Model weights (Task 1); same. |
-| `effects/*.png` | face/face_effects.py | BGRA stickers (crown, masks, ...), loaded with `cv2.IMREAD_UNCHANGED`. |
+| `models/pose_landmarker_full.task` | pose/pose_estimator.py | `python -m tools.download_models` (MediaPipe, float16, version 1) |
+| `models/face_landmarker.task` | face/face_tracker.py | `python -m tools.download_models` |
+| `models/pose_landmarker_{lite,heavy}.task` | evaluation only | `python -m tools.download_models --all` |
+| `song.wav` | scene/audio.py | generated procedurally (scene/music.py) on first start, or `python -m tools.make_default_assets` |
+| `choreography.json` | gameplay/choreography.py | generated to match the song, or from a video: `python -m tools.extract_reference` |
+| `effects/{sunglasses,crown,star}.png` | face/stickers.py | optional BGRA images that replace the drawn stickers |

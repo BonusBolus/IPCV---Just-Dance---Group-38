@@ -20,6 +20,17 @@ def to_px(xy, shape) -> tuple[int, int]:
     return int(round(xy[0] * w)), int(round(xy[1] * h))
 
 
+def bbox_iou(a, b) -> float:
+    """Intersection over union of two (x, y, w, h) boxes."""
+    ax0, ay0, aw, ah = a
+    bx0, by0, bw, bh = b
+    ix = max(0.0, min(ax0 + aw, bx0 + bw) - max(ax0, bx0))
+    iy = max(0.0, min(ay0 + ah, by0 + bh) - max(ay0, by0))
+    inter = ix * iy
+    union = aw * ah + bw * bh - inter
+    return inter / union if union > 0 else 0.0
+
+
 def resize_to_width(image: np.ndarray, width: int, interpolation=cv2.INTER_AREA) -> np.ndarray:
     h, w = image.shape[:2]
     if w == width:
@@ -94,9 +105,44 @@ def vertical_gradient(w: int, h: int, top, bottom) -> np.ndarray:
     return np.broadcast_to(col, (h, w, 3)).astype(np.uint8)
 
 
+def _blend_patch(dst: np.ndarray, patch: np.ndarray, x0: int, y0: int, opacity: float) -> None:
+    """Alpha-blend BGRA `patch` onto `dst` with its top-left corner at (x0, y0), clipped."""
+    ph, pw = patch.shape[:2]
+    cx0, cy0, cx1, cy1 = _clip((x0, y0, pw, ph), dst.shape)
+    if cx1 <= cx0 or cy1 <= cy0:
+        return
+    patch = patch[cy0 - y0:cy1 - y0, cx0 - x0:cx1 - x0]
+    alpha = patch[..., 3:4].astype(np.float32) * (opacity / 255.0)
+    roi = dst[cy0:cy1, cx0:cx1]
+    roi[:] = (patch[..., :3] * alpha + roi * (1.0 - alpha)).astype(np.uint8)
+
+
+def warp_rgba_affine(dst: np.ndarray, rgba: np.ndarray, src_pts, dst_pts, opacity: float = 1.0) -> None:
+    """Warp a BGRA sticker so its 3 anchor points `src_pts` land on `dst_pts` (pixels), then blend.
+
+    An affine map from 3 point pairs covers translation, rotation, scale, shear and
+    foreshortening, so e.g. glasses anchored to both eye corners and the nose follow head turns.
+    Only the bounding box of the warped sticker is processed.
+    """
+    src = np.asarray(src_pts, np.float32)
+    dstp = np.asarray(dst_pts, np.float32)
+    m = cv2.getAffineTransform(src, dstp)
+    h, w = rgba.shape[:2]
+    corners = np.array([[0, 0, 1], [w, 0, 1], [0, h, 1], [w, h, 1]], np.float32) @ m.T
+    x0, y0 = np.floor(corners.min(axis=0)).astype(int)
+    x1, y1 = np.ceil(corners.max(axis=0)).astype(int)
+    H, W = dst.shape[:2]
+    if x1 <= 0 or y1 <= 0 or x0 >= W or y0 >= H or (x1 - x0) * (y1 - y0) > 4 * W * H:
+        return
+    m[:, 2] -= (x0, y0)  # warp into the bounding box only
+    patch = cv2.warpAffine(rgba, m, (int(x1 - x0), int(y1 - y0)), flags=cv2.INTER_LINEAR,
+                           borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
+    _blend_patch(dst, patch, int(x0), int(y0), opacity)
+
+
 def overlay_rgba(
     dst: np.ndarray, rgba: np.ndarray, center: tuple[float, float],
-    scale: float = 1.0, angle_deg: float = 0.0,
+    scale: float = 1.0, angle_deg: float = 0.0, opacity: float = 1.0,
 ) -> None:
     """Alpha-blend a BGRA sticker onto `dst` in place, centred at pixel `center`.
 
@@ -114,14 +160,7 @@ def overlay_rgba(
     warped = cv2.warpAffine(rgba, m, (nw, nh), flags=cv2.INTER_LINEAR,
                             borderMode=cv2.BORDER_CONSTANT, borderValue=(0, 0, 0, 0))
 
-    x0, y0 = int(round(center[0] - nw / 2)), int(round(center[1] - nh / 2))
-    cx0, cy0, cx1, cy1 = _clip((x0, y0, nw, nh), dst.shape)
-    if cx1 <= cx0 or cy1 <= cy0:
-        return
-    patch = warped[cy0 - y0:cy1 - y0, cx0 - x0:cx1 - x0]
-    alpha = patch[..., 3:4].astype(np.float32) / 255.0
-    roi = dst[cy0:cy1, cx0:cx1]
-    roi[:] = (patch[..., :3] * alpha + roi * (1.0 - alpha)).astype(np.uint8)
+    _blend_patch(dst, warped, int(round(center[0] - nw / 2)), int(round(center[1] - nh / 2)), opacity)
 
 
 def draw_skeleton(

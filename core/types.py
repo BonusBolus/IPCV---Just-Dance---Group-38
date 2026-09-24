@@ -9,6 +9,10 @@ Conventions
 - Image coordinates are *normalized* to [0, 1] relative to the camera frame (x to the right,
   y downwards). They stay valid whatever resolution a module runs at or the renderer draws at.
 - Body keypoints use the COCO-17 layout below, whichever pose backend Task 2 picks.
+  Left/right labels follow the pose model, which labels by appearance: for a person facing
+  the camera, `left_*` keypoints are on the image *right*, also in the mirrored view.
+- Normalized coordinates are anisotropic (x is divided by W, y by H). Multiply x by
+  `PoseObs.aspect` (= W/H) before computing angles or distances.
 - `timestamp` = time.perf_counter() at capture. "Song time" = seconds since the song started
   (see scene/audio.py).
 """
@@ -61,7 +65,12 @@ class PoseObs:
     keypoints: np.ndarray   # (17, 2) float32, normalized image coords
     confidence: np.ndarray  # (17,) float32 in [0, 1]
     timestamp: float
+    aspect: float = 1.0             # W/H of the source image, to undo the anisotropic normalization
     mask: np.ndarray | None = None  # optional (h, w) float32 person segmentation in [0, 1]
+
+    def iso(self) -> np.ndarray:
+        """Keypoints in isotropic units (x * aspect, y): angles and distances are correct here."""
+        return self.keypoints * np.array([self.aspect, 1.0], np.float32)
 
     def valid(self, min_conf: float = 0.3) -> np.ndarray:
         return self.confidence >= min_conf
@@ -140,8 +149,18 @@ class MoveType(Enum):
     T_POSE = auto()
     CLAP = auto()
     SQUAT = auto()
-    POINT_LEFT = auto()
-    POINT_RIGHT = auto()
+    POINT_LEFT = auto()   # pointing to the screen's left
+    POINT_RIGHT = auto()  # pointing to the screen's right
+    HIGH_FIVE = auto()    # interaction move: both players touch hands
+    SWAP = auto()         # interaction move: players swap places
+
+    @property
+    def label(self) -> str:
+        return self.name.replace("_", " ")
+
+    @property
+    def is_interaction(self) -> bool:
+        return self in (MoveType.HIGH_FIVE, MoveType.SWAP)
 
 
 class Grade(Enum):
