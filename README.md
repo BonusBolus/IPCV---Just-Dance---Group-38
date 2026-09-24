@@ -42,7 +42,7 @@ python main.py --help
 | C | mock scenario: dance / cross (players swap places, for the identity tests) |
 | D | toggle debug overlay (FPS, per-stage ms, module failures, skeletons) |
 | F | fullscreen |
-| Q / ESC | quit |
+| Q | ESC | quit |
 
 Game flow: `START -> LOBBY (waits for 2 players) -> COUNTDOWN -> PLAYING -> RESULTS`.
 
