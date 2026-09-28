@@ -6,13 +6,15 @@ Run:  python main.py                 (webcam 0)
 Press q or ESC to quit.
 """
 import argparse
-
 import cv2
 
 from camera import Camera, FPSCounter
 
+from pose_tracking.pose_main import PoseEstimator
+pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1)
 
 def process_frame(frame):
+    
     """Everything that happens with one camera frame. The tasks are added here:
 
     1. body pose estimation        (task 2)
@@ -24,6 +26,10 @@ def process_frame(frame):
     Returns the image that is shown on screen.
     """
     output = frame.image.copy()
+    
+    keypoints, motion = pose_estimator.process(output)
+    
+    
     return output
 
 
