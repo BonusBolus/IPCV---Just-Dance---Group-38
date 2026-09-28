@@ -12,7 +12,7 @@ import cv2
 from camera import Camera, FPSCounter
 
 from scene.scene import createScene
-
+from poses.poses import poses
 
 def process_frame(frame):
     """Everything that happens with one camera frame. The tasks are added here:
@@ -26,7 +26,12 @@ def process_frame(frame):
     Returns the image that is shown on screen.
     """
     output = frame.image.copy()
-    output = createScene(output)
+
+
+    score = [100, 200]  # Example scores for Player 1 and Player 2
+    colors = [(255, 0, 0), (0, 0, 255)]  # Colors for Player 1 and Player 2
+    current_pose = "cactus"  # Example current pose
+    output = createScene(output, score, colors, current_pose)
     return output
 
 
