@@ -11,6 +11,8 @@ import cv2
 
 from camera import Camera, FPSCounter
 
+from scene.scene import createScene
+
 
 def process_frame(frame):
     """Everything that happens with one camera frame. The tasks are added here:
@@ -24,6 +26,7 @@ def process_frame(frame):
     Returns the image that is shown on screen.
     """
     output = frame.image.copy()
+    output = createScene(output)
     return output
 
 
