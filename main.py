@@ -27,11 +27,58 @@ def process_frame(frame):
     """
     output = frame.image.copy()
 
+    current_pose = poses["t_pose"]  # Example current pose
+    example_player_1 = {
+        "ID": 0,
+        "color": (0, 0, 255),  # Example color for Player 1 (RGB)
+        "score": 100,
+        "keypoints": {
+            "nose":           (340, 120),
+            "left_eye":       (320, 104),
+            "right_eye":      (360, 104),
+            "left_ear":       (298, 110),
+            "right_ear":      (382, 110),
+            "left_shoulder":  (258, 203),
+            "right_shoulder": (422, 203),
+            "left_elbow":     (126, 203),
+            "right_elbow":    (555, 203),
+            "left_wrist":     (126, 71),
+            "right_wrist":    (555, 335),
+            "left_hip":       (282, 368),
+            "right_hip":      (398, 368),
+            "left_knee":      (258, 491),
+            "right_knee":     (422, 491),
+            "left_ankle":     (266, 615),
+            "right_ankle":    (414, 615),
+        },
+    }
 
-    score = [100, 200]  # Example scores for Player 1 and Player 2
-    colors = [(255, 0, 0), (0, 0, 255)]  # Colors for Player 1 and Player 2
-    current_pose = "cactus"  # Example current pose
-    output = createScene(output, score, colors, current_pose)
+    example_player_2 = {
+        "ID": 1,
+        "color": (0, 255, 0),  # Example color for Player 2 (RGB)
+        "score": 200,
+        "keypoints": {
+            "nose":           (940, 120),
+            "left_eye":       (920, 104),
+            "right_eye":      (960, 104),
+            "left_ear":       (898, 110),
+            "right_ear":      (982, 110),
+            "left_shoulder":  (858, 203),
+            "right_shoulder": (1022, 203),
+            "left_elbow":     (726, 203),
+            "right_elbow":    (1155, 203),
+            "left_wrist":     (726, 71),
+            "right_wrist":    (1155, 335),
+            "left_hip":       (882, 368),
+            "right_hip":      (998, 368),
+            "left_knee":      (858, 491),
+            "right_knee":     (1022, 491),
+            "left_ankle":     (866, 615),
+            "right_ankle":    (1014, 615),
+        },
+    }
+    players = [example_player_1, example_player_2]  # Example list of players
+    output = createScene(output, players, current_pose)
     return output
 
 
