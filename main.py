@@ -5,10 +5,9 @@ Run:  python main.py                 (webcam 0)
       python main.py --video file.mp4
 Press q or ESC to quit.
 """
+
 import argparse
-
 import cv2
-
 from camera import Camera, FPSCounter
 
 
