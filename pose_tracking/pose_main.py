@@ -34,11 +34,18 @@ class PoseEstimator:
         "right_ankle": 16,
     }
     
-    def __init__(self, CONFIDENCE_THRESHOLD=0.1, MOTIONS_SMOOTHING=0.5):
+    def __init__(self, 
+                 CONFIDENCE_THRESHOLD=0.1,
+                 KEYPOINTS_SMOOTHING=0.7, 
+                 MOTIONS_SMOOTHING=0.5):
+        
         # Initialize the PoseEstimator with previous keypoints and motion set to None.
         self.previous_keypoints = None
         self.previous_motion = None
+        
+        # Variables for smoothing and confidence threshold
         self.CONFIDENCE_THRESHOLD = CONFIDENCE_THRESHOLD
+        self.KEYPOINTS_SMOOTHING = KEYPOINTS_SMOOTHING  # Smoothing factor for keypoint estimation
         self.MOTIONS_SMOOTHING = MOTIONS_SMOOTHING  # Smoothing factor for motion estimation
 
         #lightweight pose estimation model
@@ -47,6 +54,12 @@ class PoseEstimator:
     def _empty_keypoints(self):
         return np.empty(
             (0, self.NUM_KEYPOINTS, self.KEYPOINT_SIZE),
+            dtype=np.float32,
+        )
+        
+    def _empty_motion(self):
+        return np.empty(
+            (0, self.NUM_KEYPOINTS, 2),
             dtype=np.float32,
         ) 
     
@@ -91,26 +104,52 @@ class PoseEstimator:
         if keypoints.shape[0] != self.previous_keypoints.shape[0]:
             return keypoints
         
+        keypoints = keypoints.copy()  # Create a copy to avoid modifying the original array
+        
         # For each person, check for missing keypoints and replace them with the previous frame's keypoints.
         for i in range(keypoints.shape[0]):
             for j in range(self.NUM_KEYPOINTS):
                 if keypoints[i, j, 2] < self.CONFIDENCE_THRESHOLD:  # Confidence threshold
+                    # Reuse position, but keep current confidence.
                     keypoints[i, j] = self.previous_keypoints[i, j]
         
         return keypoints
     
+    def _smooth_keypoints(self, keypoints):
+        
+        if self.previous_keypoints is None:
+            return keypoints
+
+        if keypoints.size == 0:
+            return keypoints
+
+        if keypoints.shape[0] != self.previous_keypoints.shape[0]:
+            return keypoints
+
+        smoothed = keypoints.copy()
+
+        # Apply exponential smoothing to the keypoints.
+        smoothed[:, :, :2] = (
+            self.KEYPOINTS_SMOOTHING * keypoints[:, :, :2]
+            + (1 - self.KEYPOINTS_SMOOTHING)
+            * self.previous_keypoints[:, :, :2]
+        )
+
+        return smoothed
+    
+    
     def _estimate_motion(self, keypoints):
         # If there are no previous keypoints, return an empty motion array.
         if self.previous_keypoints is None:
-            return np.empty((0, self.NUM_KEYPOINTS, 2), dtype=np.float32)
+            return self._empty_motion()
         
         # If the current keypoints are empty, return an empty motion array.
         if keypoints.size == 0:
-            return np.empty((0, self.NUM_KEYPOINTS, 2), dtype=np.float32)
+            return self._empty_motion()
         
         # If the number of people detected has changed, return an empty motion array.
         if keypoints.shape[0] != self.previous_keypoints.shape[0]:
-            return np.empty((0, self.NUM_KEYPOINTS, 2), dtype=np.float32)
+            return self._empty_motion()
         
         # Calculate the motion as the difference between the current and previous keypoints.
         motion = keypoints[:, :, :2] - self.previous_keypoints[:, :, :2]
@@ -145,7 +184,8 @@ class PoseEstimator:
             # Estimate keypoints from the frame using the YOLO model, handle any missing keypoints.
             keypoints = self._estimate_keypoints(frame)
             keypoints = self._handle_missing_keypoints(keypoints)
-    
+            keypoints = self._smooth_keypoints(keypoints)
+            
             # Estimate motion based on the keypoints, apply smoothing to the motion.
             motion = self._estimate_motion(keypoints)
             motion = self._smooth_motion(motion)

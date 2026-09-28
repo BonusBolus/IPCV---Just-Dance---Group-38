@@ -11,7 +11,7 @@ import cv2
 from camera import Camera, FPSCounter
 
 from pose_tracking.pose_main import PoseEstimator
-pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1)
+pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 
 def process_frame(frame):
     
@@ -29,8 +29,40 @@ def process_frame(frame):
     
     keypoints, motion = pose_estimator.process(output)
     
+    output = draw_keypoints(
+        output,
+        keypoints,
+        confidence_threshold=0.1,
+    )
+
+    
     
     return output
+
+def draw_keypoints(image, keypoints, confidence_threshold=0.1):
+    """
+    Draw detected pose keypoints on the image.
+
+    keypoints shape:
+        (num_people, num_keypoints, 3)
+
+    Last dimension:
+        [x, y, confidence]
+    """
+    for person in keypoints:
+        for x, y, confidence in person:
+            if confidence < confidence_threshold:
+                continue
+
+            cv2.circle(
+                image,
+                (int(x), int(y)),
+                4,
+                (0, 255, 0),
+                -1,
+            )
+
+    return image
 
 
 def main():
