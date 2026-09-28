@@ -12,6 +12,8 @@ from camera import Camera, FPSCounter
 
 from pose_tracking.pose_main import PoseEstimator
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
+from scene.scene import createScene
+from poses.poses import poses
 
 def process_frame(frame):
     
@@ -37,6 +39,12 @@ def process_frame(frame):
 
     
     
+
+
+    score = [100, 200]  # Example scores for Player 1 and Player 2
+    colors = [(255, 0, 0), (0, 0, 255)]  # Colors for Player 1 and Player 2
+    current_pose = poses.cactus  # Example current pose
+    output = createScene(output, score, colors, current_pose)
     return output
 
 def draw_keypoints(image, keypoints, confidence_threshold=0.1):
