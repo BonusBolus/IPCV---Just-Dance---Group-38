@@ -5,9 +5,10 @@ Remember the shirt colour and last position of each player, and in every new fra
 detected person the player that fits best.
 
 Pipeline per frame:
-    image -> PeopleDetector.detect()   -> list of Person (box + keypoints), no identity yet
-                                          (detection/people_detector.py, not part of this task)
-          -> torso_box(person.box)     -> the shirt part of each box
+    image -> PoseEstimator.process()   -> keypoints (num_people, 17, 3), no identity yet
+                                          (pose_tracking/pose_main.py, task 2)
+          -> people_from_pose()        -> list of Person (box + keypoints)
+          -> torso_box(person)         -> the shirt part: between the shoulders and hips
           -> average_color()           -> one colour per person
              color_histogram()         -> colour distribution, for players with similar colours
           -> IdentityTracker.update()  -> cost for every person-player pair, best pairing
@@ -18,6 +19,16 @@ import cv2
 import numpy as np
 from scipy.optimize import linear_sum_assignment
 
+# COCO keypoint order used by YOLO-pose (same as PoseEstimator.KEYPOINTS)
+LEFT_SHOULDER, RIGHT_SHOULDER = 5, 6
+LEFT_HIP, RIGHT_HIP = 11, 12
+
+
+@dataclass
+class Person:
+    box: tuple              # (x, y, w, h) in pixels, around the visible keypoints
+    keypoints: np.ndarray   # (17, 3) x, y, confidence: one row of the PoseEstimator output
+
 
 @dataclass
 class Player:
@@ -27,13 +38,47 @@ class Player:
     box: tuple              # last box where this player was seen
 
 
-def torso_box(box):
-    """Return the part of the person box (x, y, w, h) that contains the shirt.
+def people_from_pose(keypoints, min_confidence=0.1, margin=0.1):
+    """Turn the PoseEstimator output (num_people, 17, 3) into a list of Person.
+
+    The box of a person is the smallest box around their keypoints that the model is sure
+    about, made `margin` (10%) larger on every side because the keypoints sit inside the body.
+    People with fewer than 2 such keypoints are skipped: no box can be made for them.
+    """
+    people = []
+    for person_keypoints in keypoints:
+        visible = person_keypoints[person_keypoints[:, 2] >= min_confidence, :2]
+        if len(visible) < 2:
+            continue
+        x1, y1 = visible.min(axis=0)
+        x2, y2 = visible.max(axis=0)
+        dx, dy = margin * (x2 - x1), margin * (y2 - y1)
+        box = (int(x1 - dx), int(y1 - dy), int(x2 - x1 + 2 * dx), int(y2 - y1 + 2 * dy))
+        people.append(Person(box, person_keypoints))
+    return people
+
+
+def torso_box(person, min_confidence=0.5):
+    """Return the part of the person (x, y, w, h) that contains the shirt.
 
     The full box also contains background, the head, arms and legs, which spoil the average
-    colour. So we take a smaller box: the middle 50% of the width, and 25% to 55% of the height.
+    colour. With the pose keypoints we know where the shirt is: between the shoulders and the
+    hips. We take the middle 60% of that width and 10% to 90% of that height, so the arms and
+    the trousers stay out.
+
+    If a shoulder or hip is not visible (e.g. sitting close to the camera), fall back to a fixed
+    part of the person box: the middle 50% of the width, and 25% to 55% of the height.
     """
-    x, y, w, h = box
+    kp = person.keypoints
+    torso = [LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP]
+    if all(kp[i, 2] >= min_confidence for i in torso):
+        x1, x2 = kp[torso, 0].min(), kp[torso, 0].max()
+        top = (kp[LEFT_SHOULDER, 1] + kp[RIGHT_SHOULDER, 1]) / 2
+        bottom = (kp[LEFT_HIP, 1] + kp[RIGHT_HIP, 1]) / 2
+        w, h = x2 - x1, bottom - top
+        if w > 4 and h > 4:  # a person standing sideways has almost no torso width
+            return (int(x1 + 0.2 * w), int(top + 0.1 * h), int(0.6 * w), int(0.8 * h))
+    x, y, w, h = person.box
     return (x + w // 4, y + h // 4, w // 2, int(h * 0.3))
 
 
@@ -125,7 +170,7 @@ class IdentityTracker:
     def update(self, image, people):
         """Give every detected person a player. Returns a list of (player or None, person).
 
-        `people` is the list from PeopleDetector.detect().
+        `people` is the list from people_from_pose().
 
         Steps:
           1. compute the shirt colour and histogram of every person
@@ -138,8 +183,8 @@ class IdentityTracker:
           6. matched players are updated: new position, colour moved 10% towards the new one
         """
         # 1. shirt colour and histogram of every person
-        colors = [average_color(image, torso_box(p.box)) for p in people]
-        histograms = [color_histogram(image, torso_box(p.box)) for p in people]
+        colors = [average_color(image, torso_box(p)) for p in people]
+        histograms = [color_histogram(image, torso_box(p)) for p in people]
 
         assigned = [None] * len(people)
         if self.players and people:
@@ -181,7 +226,7 @@ def draw_labels(image, tracked):
     """Draw the box, the shirt region and the label of every tracked person."""
     for player, person in tracked:
         x, y, w, h = person.box
-        tx, ty, tw, th = torso_box(person.box)
+        tx, ty, tw, th = torso_box(person)
         if player is None:
             label, color = "?", (128, 128, 128)
         else:

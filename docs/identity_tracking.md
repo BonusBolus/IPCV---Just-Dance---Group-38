@@ -24,9 +24,9 @@ also in the assignment: task 2 finds the bodies, task 3 labels them.
 
 ## 2. Steps (do them in this order, test after each one)
 
-Open [identity.py](../identity.py) and run `python identity_demo.py`. The boxes come from the
-people detector in [detection/people_detector.py](../detection/people_detector.py) (not part of
-your task). It also works when you sit close to the camera.
+Open [identity.py](../identity_tracking/identity.py) and run `python main.py`. The people come from
+the pose estimation in [pose_tracking/pose_main.py](../pose_tracking/pose_main.py) (task 2):
+`people_from_pose()` turns its keypoints into one box per person.
 
 1. **`torso_box`**: shrink the person box to the shirt. Check it on screen: the thin white
    box should sit on your chest.
@@ -49,17 +49,17 @@ your task). It also works when you sit close to the camera.
 | Colour **histograms** (`cv2.calcHist`, `cv2.compareHist`) | the average of a striped shirt is a meaningless grey; a histogram keeps the distribution |
 | Nearest-neighbour matching / assignment problem, **Hungarian algorithm** (`scipy.optimize.linear_sum_assignment`) | prevents two people from getting the same label: it finds the best pairing overall |
 | Exponential moving average | updating the remembered colour slowly (step 4 in `update`) |
-| Object detection, EfficientDet / SSD, COCO dataset | how the people detector that provides your boxes works, in case the professor asks |
+| Pose estimation, YOLO-pose, COCO keypoints | how the pose estimation that provides your people works, in case the professor asks |
 
 ## 4. Pitfalls you will run into
 
 - **Similar clothes.** Two people in black shirts cannot be told apart by colour alone. For the
   demo, ask players to wear different colours. Later, combine colour with position (step 5).
-- **Background in the box.** The detector box is loose. That's why you use only the shirt
+- **Background in the box.** The box around the keypoints also contains background. That's why you use only the shirt
   region, not the whole box.
 - **Lighting.** Walking under a lamp changes the colour. Updating the colour slowly helps, and
   HSV or Lab helps more.
-- **Detector misses a frame.** Then a player has no box that frame. Don't delete the player:
+- **Pose estimation misses a frame.** Then a player has no box that frame. Don't delete the player:
   keep them in `self.players` and they get their label back when they are detected again.
   That is the "leave and re-enter" requirement.
 - **Two boxes, same player.** With the simple nearest-colour rule both boxes can pick the same
@@ -72,9 +72,8 @@ your task). It also works when you sit close to the camera.
 1. **Colour + position.** People move only a little between two frames (1/30 s). A cost like
    `colour_distance + weight * position_distance` makes crossings much more stable.
 2. **Hungarian assignment** instead of "each box picks its closest player".
-3. **Boxes from the pose estimation (task 2).** Once your teammate has body keypoints, take the
-   shirt region between the shoulders and hips. That's more precise than a detector box, which
-   also contains background.
+3. **Boxes from the pose estimation (task 2).** Done: the shirt region is taken between the
+   shoulders and hips (`torso_box`), with a fixed part of the box as fallback.
 4. **Prediction (Kalman filter).** Predict where each player will be in the next frame, which
    helps while players cross or are hidden for a moment.
 5. **Physical position.** The assignment asks for player positions in real units for task 4.
@@ -89,6 +88,6 @@ your task). It also works when you sit close to the camera.
 - **Lighting / clothing:** repeat with similar shirts, and in darker light, and report when it
   fails.
 - **Speed:** time `update()` with `time.perf_counter()`. It should take well below 1 ms per
-  frame; the detector costs more.
+  frame; the pose estimation costs more.
 - Record the test once (e.g. with your phone or OpenCV's `VideoWriter`) and replay it with
-  `python identity_demo.py --video test.mp4`, so every version is tested on the same footage.
+  `python main.py --video test.mp4`, so every version is tested on the same footage.

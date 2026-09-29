@@ -10,14 +10,13 @@ Press q or ESC to quit, r to register the players again.
 import argparse
 import cv2
 from camera import Camera, FPSCounter
-from detection.people_detector import PeopleDetector, draw_people
-from identity import IdentityTracker, draw_labels
+from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 
 from pose_tracking.pose_main import PoseEstimator
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 
 
-def process_frame(frame, detector, tracker):
+def process_frame(frame, tracker):
 
     """Everything that happens with one camera frame. The tasks are added here:
 
@@ -29,21 +28,18 @@ def process_frame(frame, detector, tracker):
 
     Returns the image that is shown on screen.
     """
-    people = detector.detect(frame.image)            # boxes + keypoints, no identity yet
-    tracked = tracker.update(frame.image, people)    # task 3: who is who
+    keypoints, motion = pose_estimator.process(frame.image)   # task 2: body keypoints, no identity yet
+    people = people_from_pose(keypoints, min_confidence=0.1)  # box around each set of keypoints
+    tracked = tracker.update(frame.image, people)             # task 3: who is who
 
     output = frame.image.copy()
-    
-    keypoints, motion = pose_estimator.process(output)
-    
+    draw_labels(output, tracked)
     output = draw_keypoints(
         output,
         keypoints,
         confidence_threshold=0.1,
     )
 
-    
-    
     return output
 
 def draw_keypoints(image, keypoints, confidence_threshold=0.1):
@@ -79,7 +75,6 @@ def main():
     args = parser.parse_args()
 
     camera = Camera(args.video if args.video else args.camera)
-    detector = PeopleDetector()
     tracker = IdentityTracker(max_players=2)
     fps = FPSCounter()
 
@@ -88,7 +83,7 @@ def main():
         if frame is None:
             break
 
-        output = process_frame(frame, detector, tracker)
+        output = process_frame(frame, tracker)
 
         fps.update()
         cv2.putText(output, f"FPS: {fps.fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
