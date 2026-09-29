@@ -20,7 +20,6 @@ class Scene:
         for player in players:
             colors.append(player[self.color_key])
             scores.append(player["score"])
-            output = self._draw_player(output, player)
 
         output = self._add_title(output, self.title_bottom, colors)
         output = self._add_score(output, scores, self.score_top, self.score_bottom, colors)
@@ -30,26 +29,29 @@ class Scene:
 
         return output
 
-    def _draw_player(self, frame, player):
-        if not player["visible"]:
-            return frame
-        keypoints = player["keypoints"]
+    def draw_player(self, frame, players):
+        """Draws the keypoints and a head circle in the player color, for debugging. players: dict from IdentityTracker.update()."""
+        for player in players.values():
+            if not player["visible"]:
+                continue
+            keypoints = player["keypoints"]
+            color = player[self.color_key][::-1]
 
-        for keypoint in keypoints:
-            if keypoints[keypoint] is not None and keypoint not in [
-                "left_eye", "right_eye", "left_ear", "right_ear", "nose"
-            ]:
-                x, y = keypoints[keypoint]
-                cv2.circle(frame, (x, y), 5, player[self.color_key][::-1], -1)
+            for keypoint in keypoints:
+                if keypoints[keypoint] is not None and keypoint not in [
+                    "left_eye", "right_eye", "left_ear", "right_ear", "nose"
+                ]:
+                    x, y = keypoints[keypoint]
+                    cv2.circle(frame, (x, y), 5, color, -1)
 
-        if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
-            return frame
-        head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
-        head_center = (
-            (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
-            keypoints["right_eye"][1],
-        )
-        cv2.circle(frame, head_center, head_width // 2, player[self.color_key][::-1], -1)
+            if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
+                continue
+            head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
+            head_center = (
+                (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
+                keypoints["right_eye"][1],
+            )
+            cv2.circle(frame, head_center, head_width // 2, color, -1)
         return frame
 
     def _add_title(self, frame, title_height, colors):

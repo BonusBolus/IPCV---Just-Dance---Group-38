@@ -1,7 +1,11 @@
 import json
 import math
 
-from poses.poses import poses
+
+# Pose keypoints are relative to the nose. Lengths used:
+# upper/lower arms 0.8, upper/lower legs 0.75
+with open("choreography/poses.json", "r", encoding="utf-8") as poses_file:
+    poses = json.load(poses_file)
 
 
 def load_song(song_path):

@@ -1,3 +1,6 @@
+import os
+import sys
+from contextlib import contextmanager
 from pathlib import Path
 
 import cv2
@@ -19,7 +22,26 @@ options = FaceLandmarkerOptions(
     num_faces=10
 )
 
-landmarker = FaceLandmarker.create_from_options(options)
+
+
+@contextmanager
+def _silence_stderr():
+    """MediaPipe's C++ code prints WARNING/INFO lines straight to stderr, so redirect it at file descriptor level."""
+    sys.stderr.flush()
+    saved = os.dup(2)
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    os.dup2(devnull, 2)
+    try:
+        yield
+    finally:
+        sys.stderr.flush()
+        os.dup2(saved, 2)
+        os.close(devnull)
+        os.close(saved)
+
+
+with _silence_stderr():
+    landmarker = FaceLandmarker.create_from_options(options)
 
 _previous_faces = []
 _missed_frames = []

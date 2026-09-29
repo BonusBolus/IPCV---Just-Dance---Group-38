@@ -61,7 +61,7 @@ def new_player_entry(player_id):
         "player_color": (R, G, B) fixed display colour of this player slot (never changes)
         "score":      total score. Not touched by the tracker: game_logic adds to it
         "keypoints":  {"nose": (x, y), ...}, a name is None when not visible (same names as
-                      poses/poses.py). All None when the player is not visible.
+                      choreography/poses.json). All None when the player is not visible.
         "keypoints_raw": (17, 3) array x, y, confidence from PoseEstimator, or None
         "box":        (x, y, w, h) around the player, or None
     """

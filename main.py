@@ -35,6 +35,7 @@ def process_frame(frame, tracker, song, start_time, scene):
 
     Returns the image that is shown on screen.
     """
+    
     keypoints, motion = pose_estimator.process(frame.image)             # task 2: body keypoints, no identity yet
     people = people_from_pose(keypoints, min_confidence=0.1)            # box around each set of keypoints
     players = tracker.update(frame.image, people)                       # task 3: {1: {...}, 2: {...}}, see new_player_entry()
@@ -43,9 +44,10 @@ def process_frame(frame, tracker, song, start_time, scene):
     faces = smooth_face_properties(get_face_properties(output))         # Get properties of every detected face
     enlarge_heads(output, faces, HEAD_ENLARGEMENT)                      # Enlarge detected heads
 
-    # draw_face_outline(output, faces)                                  # Draw oval shaped outline of heads, for debugging
     # draw_keypoints(output, keypoints, confidence_threshold=0.1,)      # keypoints from body pose tracker, for debugging
     # draw_labels(output, players)                                      # labels from identity tracker, for debugging
+    # draw_face_outline(output, faces)                                  # oval head shape from face tracker, for debugging
+    # scene.draw_player(output, players)                                # head circle from scene, for debugging
 
     current_time = time.time()
     song_start_time = 5
@@ -71,7 +73,7 @@ def main():
     fps = FPSCounter()
     scene = Scene(color_key=PLAYER_COLOR)
     start_time = time.time()
-    song = load_song("songs/song_1.json")
+    song = load_song("choreography/song_1.json")
 
     while True:
         frame = camera.read()
