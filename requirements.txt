@@ -1,4 +1,6 @@
 numpy
+opencv-python
 opencv-contrib-python
+pymixbox
+scipy
 ultralytics
-numpy
