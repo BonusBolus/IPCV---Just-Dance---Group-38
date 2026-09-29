@@ -58,6 +58,7 @@ def new_player_entry(player_id):
         "visible":    True if the player is in this frame
         "registered": True once someone has been given this player number
         "color":      (R, G, B) shirt colour, or the default slot colour before registration
+        "player_color": (R, G, B) fixed display colour of this player slot (never changes)
         "score":      total score. Not touched by the tracker: game_logic adds to it
         "keypoints":  {"nose": (x, y), ...}, a name is None when not visible (same names as
                       poses/poses.py). All None when the player is not visible.
@@ -69,7 +70,7 @@ def new_player_entry(player_id):
         "visible": False,
         "registered": False,
         "color": DEFAULT_COLORS.get(player_id, (255, 255, 255)),
-        "player_color":DEFAULT_COLORS,
+        "player_color": DEFAULT_COLORS.get(player_id, (255, 255, 255)),
         "score": 0,
         "keypoints": {name: None for name in KEYPOINT_NAMES},
         "keypoints_raw": None,

@@ -10,14 +10,14 @@ import argparse
 import cv2
 import time
 
-from functions import put_text_right
 from camera import Camera, FPSCounter
-from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 from pose_tracking.pose_main import PoseEstimator, draw_keypoints
+from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
 from face_tracking.face_overlay import draw_face_outline
 from face_tracking.head_filter import enlarge_heads
 from scene.scene import Scene
+from scene.functions import put_text_right
 from game_loop.game_loop import get_current_pose, load_song
 
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
