@@ -219,3 +219,6 @@ __marimo__/
 
 # downloaded model weights
 detection/models/
+
+# Yolo models
+yolo26n-pose.pt

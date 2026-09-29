@@ -6,14 +6,19 @@ Run:  python main.py                 (webcam 0)
 Press q or ESC to quit, r to register the players again.
 """
 
+
 import argparse
 import cv2
 from camera import Camera, FPSCounter
 from detection.people_detector import PeopleDetector, draw_people
 from identity import IdentityTracker, draw_labels
 
+from pose_tracking.pose_main import PoseEstimator
+pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
+
 
 def process_frame(frame, detector, tracker):
+
     """Everything that happens with one camera frame. The tasks are added here:
 
     1. body pose estimation        (task 2)
@@ -28,9 +33,43 @@ def process_frame(frame, detector, tracker):
     tracked = tracker.update(frame.image, people)    # task 3: who is who
 
     output = frame.image.copy()
-    draw_people(output, people)
-    draw_labels(output, tracked)
+    
+    keypoints, motion = pose_estimator.process(output)
+    
+    output = draw_keypoints(
+        output,
+        keypoints,
+        confidence_threshold=0.1,
+    )
+
+    
+    
     return output
+
+def draw_keypoints(image, keypoints, confidence_threshold=0.1):
+    """
+    Draw detected pose keypoints on the image.
+
+    keypoints shape:
+        (num_people, num_keypoints, 3)
+
+    Last dimension:
+        [x, y, confidence]
+    """
+    for person in keypoints:
+        for x, y, confidence in person:
+            if confidence < confidence_threshold:
+                continue
+
+            cv2.circle(
+                image,
+                (int(x), int(y)),
+                4,
+                (0, 255, 0),
+                -1,
+            )
+
+    return image
 
 
 def main():

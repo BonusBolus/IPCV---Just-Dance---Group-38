@@ -2,3 +2,4 @@ numpy
 opencv-python
 scipy
 ultralytics
+opencv-contrib-python
