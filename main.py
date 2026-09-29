@@ -12,12 +12,15 @@ import cv2
 from camera import Camera, FPSCounter
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 from pose_tracking.pose_main import PoseEstimator, draw_keypoints
-
+from face_tracking import get_face_properties, smooth_face_properties
+from face_overlay import draw_face_outline
+from head_filter import enlarge_heads
 
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 
 
 def process_frame(frame, tracker):
+
 
     """Everything that happens with one camera frame. The tasks are added here:
 
@@ -34,6 +37,11 @@ def process_frame(frame, tracker):
     tracked = tracker.update(frame.image, people)             # task 3: who is who
 
     output = frame.image.copy()
+    
+    faces = smooth_face_properties(get_face_properties(output)) # Get properties of every detected face
+    HEAD_ENLARGEMENT = 1.35
+    enlarge_heads(output, faces, HEAD_ENLARGEMENT) # Enlarge detected heads
+    # draw_face_outline(output, faces) # Draw oval shaped outline of heads
     # draw_keypoints(output, keypoints, confidence_threshold=0.1,)    # keypoints from body pose tracker, for debugging
     # draw_labels(output, tracked)                                    # labels from identity tracker, for debugging
 
