@@ -4,10 +4,8 @@ import cv2
 import mediapipe as mp
 import numpy as np
 
-# Next to this file, so it is found no matter from which folder the game is started
 MODEL_PATH = Path(__file__).parent / "face_landmarker.task"
 
-# MediaPipe Face Landmarker setup
 BaseOptions = mp.tasks.BaseOptions
 FaceLandmarker = mp.tasks.vision.FaceLandmarker
 FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
@@ -23,8 +21,6 @@ options = FaceLandmarkerOptions(
 
 landmarker = FaceLandmarker.create_from_options(options)
 
-# State used by ``smooth_face_properties``. Keeping it here makes the filter
-# persist across frames while leaving face detection itself stateless.
 _previous_faces = []
 _missed_frames = []
 
@@ -40,25 +36,13 @@ def get_face_properties(frame, write_results=False):
 
     height, width, _ = frame.shape
 
-    # OpenCV BGR -> RGB
     rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
 
-    # Convert frame to MediaPipe image
-    mp_image = mp.Image(
-        image_format=mp.ImageFormat.SRGB,
-        data=rgb
-    )
-
-    # Detect faces
     result = landmarker.detect(mp_image)
-
     faces = []
 
     for landmarks in result.face_landmarks:
-
-        # -----------------------------
-        # Location and size
-        # -----------------------------
 
         xs = [lm.x for lm in landmarks]
         ys = [lm.y for lm in landmarks]
@@ -78,10 +62,6 @@ def get_face_properties(frame, write_results=False):
 
         center_x = (x1 + x2) // 2
         center_y = (y1 + y2) // 2
-
-        # -----------------------------
-        # Orientation
-        # -----------------------------
 
         left_eye = landmarks[33]
         right_eye = landmarks[263]
@@ -136,10 +116,6 @@ def get_face_properties(frame, write_results=False):
         pitch = (
             (nose_vertical / face_height_pixels) - 0.5
         ) * 90
-
-        # -----------------------------
-        # Store result
-        # -----------------------------
 
         faces.append({
             "location": (center_x, center_y),

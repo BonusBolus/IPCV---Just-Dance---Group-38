@@ -1,5 +1,3 @@
-"""Image filters driven by detected face properties."""
-
 import cv2
 import numpy as np
 
@@ -42,6 +40,7 @@ def enlarge_heads(output, faces, enlargement=1.0):
             np.arange(x1, x2, dtype=np.float32),
             np.arange(y1, y2, dtype=np.float32),
         )
+
         map_x = center_x + (x_coordinates - center_x) / enlargement
         map_y = center_y + (y_coordinates - center_y) / enlargement
         enlarged = cv2.remap(
@@ -54,6 +53,7 @@ def enlarge_heads(output, faces, enlargement=1.0):
             ((x_coordinates - center_x) / radius_x) ** 2
             + ((y_coordinates - center_y) / radius_y) ** 2
         )
+        
         alpha = np.clip((1.0 - distance) / 0.2, 0.0, 1.0)[..., np.newaxis]
         original_region = output[y1:y2, x1:x2]
         output[y1:y2, x1:x2] = (

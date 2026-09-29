@@ -21,7 +21,8 @@ from scene.functions import put_text_right
 from game_loop.game_loop import get_current_pose, load_song
 
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
-
+HEAD_ENLARGEMENT = 1.35
+PLAYER_COLOR = "player_color" # or "color" for actual measured avg color
 
 def process_frame(frame, tracker, song, start_time, scene):
     """Everything that happens with one camera frame. The tasks are added here:
@@ -34,19 +35,17 @@ def process_frame(frame, tracker, song, start_time, scene):
 
     Returns the image that is shown on screen.
     """
-    keypoints, motion = pose_estimator.process(frame.image)   # task 2: body keypoints, no identity yet
-    people = people_from_pose(keypoints, min_confidence=0.1)  # box around each set of keypoints
-    players = tracker.update(frame.image, people)             # task 3: {1: {...}, 2: {...}}, see new_player_entry()
+    keypoints, motion = pose_estimator.process(frame.image)             # task 2: body keypoints, no identity yet
+    people = people_from_pose(keypoints, min_confidence=0.1)            # box around each set of keypoints
+    players = tracker.update(frame.image, people)                       # task 3: {1: {...}, 2: {...}}, see new_player_entry()
 
     output = frame.image.copy()
-    
-    faces = smooth_face_properties(get_face_properties(output)) # Get properties of every detected face
-    HEAD_ENLARGEMENT = 1.35
-    enlarge_heads(output, faces, HEAD_ENLARGEMENT) # Enlarge detected heads
-    # draw_face_outline(output, faces) # Draw oval shaped outline of heads
-    # draw_keypoints(output, keypoints, confidence_threshold=0.1,)    # keypoints from body pose tracker, for debugging
-    # draw_labels(output, players)                                    # labels from identity tracker, for debugging
+    faces = smooth_face_properties(get_face_properties(output))         # Get properties of every detected face
+    enlarge_heads(output, faces, HEAD_ENLARGEMENT)                      # Enlarge detected heads
 
+    # draw_face_outline(output, faces)                                  # Draw oval shaped outline of heads, for debugging
+    # draw_keypoints(output, keypoints, confidence_threshold=0.1,)      # keypoints from body pose tracker, for debugging
+    # draw_labels(output, players)                                      # labels from identity tracker, for debugging
 
     current_time = time.time()
     song_start_time = 5
@@ -70,11 +69,9 @@ def main():
     camera = Camera(args.video if args.video else args.camera)
     tracker = IdentityTracker(max_players=2)
     fps = FPSCounter()
-
-    scene = Scene()
-    song = load_song("songs/song_1.json")
-
+    scene = Scene(color_key=PLAYER_COLOR)
     start_time = time.time()
+    song = load_song("songs/song_1.json")
 
     while True:
         frame = camera.read()

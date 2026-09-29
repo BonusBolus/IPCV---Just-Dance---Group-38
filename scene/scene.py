@@ -2,13 +2,9 @@ import cv2
 
 from scene.functions import mix_colors, put_text_center, put_text_left, put_text_right, scale_for_height
 
-# Which colour of the players dict the scene uses (see identity_tracking/identity.py):
-#   "player_color": fixed colour per player (blue / red)
-#   "color":        the shirt colour of the player
-COLOR_KEY = "player_color"
-
 class Scene:
-    def __init__(self):
+    def __init__(self, color_key="player_color"):
+        self.color_key = color_key
         self.title_top = 0
         self.title_bottom = 50
         self.score_top = self.title_bottom + 20
@@ -22,7 +18,7 @@ class Scene:
         scores = []
 
         for player in players:
-            colors.append(player[COLOR_KEY])
+            colors.append(player[self.color_key])
             scores.append(player["score"])
             output = self._draw_player(output, player)
 
@@ -44,18 +40,16 @@ class Scene:
                 "left_eye", "right_eye", "left_ear", "right_ear", "nose"
             ]:
                 x, y = keypoints[keypoint]
-                cv2.circle(frame, (x, y), 5, player[COLOR_KEY][::-1], -1)
+                cv2.circle(frame, (x, y), 5, player[self.color_key][::-1], -1)
 
-        # the head circle needs both ears and both eyes; skip it when one is not visible
         if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
             return frame
-        # abs: facing the camera, the right ear is on the left side of the image
         head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
         head_center = (
             (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
             keypoints["right_eye"][1],
         )
-        cv2.circle(frame, head_center, head_width // 2, player[COLOR_KEY][::-1], -1)
+        cv2.circle(frame, head_center, head_width // 2, player[self.color_key][::-1], -1)
         return frame
 
     def _add_title(self, frame, title_height, colors):

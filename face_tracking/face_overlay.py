@@ -1,5 +1,3 @@
-"""Drawing helpers for face-tracking visualisations."""
-
 import cv2
 import numpy as np
 
