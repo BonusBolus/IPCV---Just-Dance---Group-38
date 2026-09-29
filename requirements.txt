@@ -1,4 +1,5 @@
 numpy
-opencv-contrib-python
+opencv-python
+scipy
 ultralytics
-numpy
+opencv-contrib-python

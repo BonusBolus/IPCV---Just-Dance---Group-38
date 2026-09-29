@@ -3,18 +3,22 @@
 Run:  python main.py                 (webcam 0)
       python main.py --camera 1      (other webcam)
       python main.py --video file.mp4
-Press q or ESC to quit.
+Press q or ESC to quit, r to register the players again.
 """
+
+
 import argparse
 import cv2
-
 from camera import Camera, FPSCounter
+from detection.people_detector import PeopleDetector, draw_people
+from identity import IdentityTracker, draw_labels
 
 from pose_tracking.pose_main import PoseEstimator
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 
-def process_frame(frame):
-    
+
+def process_frame(frame, detector, tracker):
+
     """Everything that happens with one camera frame. The tasks are added here:
 
     1. body pose estimation        (task 2)
@@ -25,6 +29,9 @@ def process_frame(frame):
 
     Returns the image that is shown on screen.
     """
+    people = detector.detect(frame.image)            # boxes + keypoints, no identity yet
+    tracked = tracker.update(frame.image, people)    # task 3: who is who
+
     output = frame.image.copy()
     
     keypoints, motion = pose_estimator.process(output)
@@ -72,6 +79,8 @@ def main():
     args = parser.parse_args()
 
     camera = Camera(args.video if args.video else args.camera)
+    detector = PeopleDetector()
+    tracker = IdentityTracker(max_players=2)
     fps = FPSCounter()
 
     while True:
@@ -79,7 +88,7 @@ def main():
         if frame is None:
             break
 
-        output = process_frame(frame)
+        output = process_frame(frame, detector, tracker)
 
         fps.update()
         cv2.putText(output, f"FPS: {fps.fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
@@ -88,6 +97,8 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key in (ord("q"), 27):
             break
+        if key == ord("r"):
+            tracker.reset()
 
     camera.release()
     cv2.destroyAllWindows()
