@@ -30,6 +30,8 @@ class Scene:
         return output
 
     def _draw_player(self, frame, player):
+        if not player["visible"]:
+            return frame
         keypoints = player["keypoints"]
 
         for keypoint in keypoints:
@@ -39,7 +41,11 @@ class Scene:
                 x, y = keypoints[keypoint]
                 cv2.circle(frame, (x, y), 5, player["color"][::-1], -1)
 
-        head_width = keypoints["right_ear"][0] - keypoints["left_ear"][0]
+        # the head circle needs both ears and both eyes; skip it when one is not visible
+        if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
+            return frame
+        # abs: facing the camera, the right ear is on the left side of the image
+        head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
         head_center = (
             (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
             keypoints["right_eye"][1],
@@ -52,13 +58,8 @@ class Scene:
         font_size = scale_for_height(title_height, cv2.FONT_HERSHEY_TRIPLEX, 2)
         colors_mixed = mix_colors(colors[0], colors[1], 0.5)
         put_text_center(
-            frame,
-            "Just Dance",
-            (width // 2, title_height // 2),
-            cv2.FONT_HERSHEY_TRIPLEX,
-            font_size,
-            colors_mixed[::-1],
-            2,
+            frame, "Just Dance", (width // 2, title_height // 2),
+            cv2.FONT_HERSHEY_TRIPLEX, font_size, colors_mixed[::-1], 2,
         )
         return frame
 
@@ -108,13 +109,9 @@ class Scene:
         width = frame.shape[1]
         font_size = scale_for_height(pose_bottom - pose_top, cv2.FONT_HERSHEY_SIMPLEX, 1)
         put_text_center(
-            frame,
-            f"Current Pose: {current_pose['name']}",
+            frame, f"Current Pose: {current_pose['name']}",
             (width // 2, (pose_top + pose_bottom) // 2),
-            cv2.FONT_HERSHEY_SIMPLEX,
-            font_size,
-            (255, 255, 255),
-            2,
+            cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), 2,
         )
 
         pose_scaling = 50

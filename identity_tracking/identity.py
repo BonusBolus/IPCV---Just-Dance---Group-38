@@ -12,6 +12,7 @@ Pipeline per frame:
           -> average_color()           -> one colour per person
              color_histogram()         -> colour distribution, for players with similar colours
           -> IdentityTracker.update()  -> cost for every person-player pair, best pairing
+                                          -> players dict, see new_player_entry()
           -> draw_labels()             -> show "Player 1" / "Player 2" on screen
 """
 from dataclasses import dataclass
@@ -20,8 +21,17 @@ import numpy as np
 from scipy.optimize import linear_sum_assignment
 
 # COCO keypoint order used by YOLO-pose (same as PoseEstimator.KEYPOINTS)
+KEYPOINT_NAMES = [
+    "nose", "left_eye", "right_eye", "left_ear", "right_ear",
+    "left_shoulder", "right_shoulder", "left_elbow", "right_elbow",
+    "left_wrist", "right_wrist", "left_hip", "right_hip",
+    "left_knee", "right_knee", "left_ankle", "right_ankle",
+]
 LEFT_SHOULDER, RIGHT_SHOULDER = 5, 6
 LEFT_HIP, RIGHT_HIP = 11, 12
+
+# colour (R, G, B) of a player slot before anyone is registered in it
+DEFAULT_COLORS = {1: (0, 120, 255), 2: (255, 60, 60)}
 
 
 @dataclass
@@ -36,6 +46,41 @@ class Player:
     color: np.ndarray       # remembered average shirt colour
     histogram: np.ndarray   # remembered colour distribution of the shirt
     box: tuple              # last box where this player was seen
+
+
+def new_player_entry(player_id):
+    """One entry of the players dict that IdentityTracker.update() returns.
+
+    The dict always has an entry for every player slot (1 and 2), also when nobody or only one
+    person is in view, so scene and game_logic can always use players[1] and players[2].
+
+        "id":         1 or 2
+        "visible":    True if the player is in this frame
+        "registered": True once someone has been given this player number
+        "color":      (R, G, B) shirt colour, or the default slot colour before registration
+        "score":      total score. Not touched by the tracker: game_logic adds to it
+        "keypoints":  {"nose": (x, y), ...}, a name is None when not visible (same names as
+                      poses/poses.py). All None when the player is not visible.
+        "keypoints_raw": (17, 3) array x, y, confidence from PoseEstimator, or None
+        "box":        (x, y, w, h) around the player, or None
+    """
+    return {
+        "id": player_id,
+        "visible": False,
+        "registered": False,
+        "color": DEFAULT_COLORS.get(player_id, (255, 255, 255)),
+        "player_color":DEFAULT_COLORS,
+        "score": 0,
+        "keypoints": {name: None for name in KEYPOINT_NAMES},
+        "keypoints_raw": None,
+        "box": None,
+    }
+
+
+def keypoints_by_name(keypoints, min_confidence=0.5):
+    """(17, 3) array -> {"nose": (x, y), ...}, None for keypoints the model is not sure about."""
+    return {name: (int(x), int(y)) if c >= min_confidence else None
+            for name, (x, y, c) in zip(KEYPOINT_NAMES, keypoints)}
 
 
 def people_from_pose(keypoints, min_confidence=0.1, margin=0.08):
@@ -147,13 +192,15 @@ def position_distance(box_a, box_b):
 
 class IdentityTracker:
     def __init__(self, max_players=2, max_distance=60.0, position_weight=0.1,
-                 similar_colors=30.0, histogram_weight=100.0):
+                 similar_colors=30.0, histogram_weight=100.0, keypoint_confidence=0.5):
         self.max_players = max_players
         self.max_distance = max_distance          # colours further apart than this are "someone else"
         self.position_weight = position_weight    # 0.1: moving 100 px costs as much as 10 colour units
         self.similar_colors = similar_colors      # players closer in colour than this: also use histograms
         self.histogram_weight = histogram_weight  # completely different histograms cost 100 colour units
-        self.players = []
+        self.keypoint_confidence = keypoint_confidence  # below this a named keypoint is None
+        self.players = []   # Player objects used for matching
+        self.entries = {i: new_player_entry(i) for i in range(1, max_players + 1)}  # returned dict
 
     def colors_are_similar(self):
         """True if two players have almost the same average shirt colour. Then the average
@@ -177,7 +224,9 @@ class IdentityTracker:
         return cost
 
     def update(self, image, people):
-        """Give every detected person a player. Returns a list of (player or None, person).
+        """Give every detected person a player. Returns the players dict {1: {...}, 2: {...}},
+        see new_player_entry(). It is the same dict every frame, so a score added by game_logic
+        stays. People who do not fit any player ("?") are left out.
 
         `people` is the list from people_from_pose().
 
@@ -190,6 +239,7 @@ class IdentityTracker:
              otherwise the person is someone else ("?")
           5. people without a player become new players while there is room
           6. matched players are updated: new position, colour moved 10% towards the new one
+          7. the players dict is filled in: visible players get their keypoints, the others not
         """
         # 1. shirt colour and histogram of every person
         colors = [average_color(image, torso_box(p)) for p in people]
@@ -212,7 +262,11 @@ class IdentityTracker:
                 if color_distance(self.players[j].color, colors[i]) < self.max_distance:
                     assigned[i] = self.players[j]
 
-        tracked = []
+        # 7. start from "nobody visible", then fill in the players found in this frame
+        for entry in self.entries.values():
+            entry.update(visible=False, box=None, keypoints_raw=None,
+                         keypoints={name: None for name in KEYPOINT_NAMES})
+
         for i, person in enumerate(people):
             player = assigned[i]
             # 5. no player yet, and there is room: register a new player
@@ -224,23 +278,29 @@ class IdentityTracker:
                 player.color = 0.9 * player.color + 0.1 * colors[i]
                 player.histogram = 0.9 * player.histogram + 0.1 * histograms[i]
                 player.box = person.box
-            tracked.append((player, person))
-        return tracked
+            if player is not None:
+                b, g, r = player.color
+                self.entries[player.id].update(
+                    visible=True, registered=True, color=(int(r), int(g), int(b)), box=person.box,
+                    keypoints=keypoints_by_name(person.keypoints, self.keypoint_confidence),
+                    keypoints_raw=person.keypoints)
+        return self.entries
 
     def reset(self):
+        """Forget the players, and their scores: everyone is registered again."""
         self.players = []
+        self.entries = {i: new_player_entry(i) for i in range(1, self.max_players + 1)}
 
 
-def draw_labels(image, tracked):
-    """Draw the box, the shirt region and the label of every tracked person."""
-    for player, person in tracked:
-        x, y, w, h = person.box
-        tx, ty, tw, th = torso_box(person)
-        if player is None:
-            label, color = "?", (128, 128, 128)
-        else:
-            label, color = f"Player {player.id}", tuple(int(c) for c in player.color)
+def draw_labels(image, players):
+    """Draw the box, the shirt region and the label of every visible player."""
+    for entry in players.values():
+        if not entry["visible"]:
+            continue
+        x, y, w, h = entry["box"]
+        tx, ty, tw, th = torso_box(Person(entry["box"], entry["keypoints_raw"]))
+        color = tuple(entry["color"][::-1])  # RGB -> BGR for OpenCV
         cv2.rectangle(image, (x, y), (x + w, y + h), color, 3)
         cv2.rectangle(image, (tx, ty), (tx + tw, ty + th), (255, 255, 255), 1)
         cv2.rectangle(image, (x, y - 30), (x + 30, y), color, -1)  # colour swatch
-        cv2.putText(image, label, (x + 36, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        cv2.putText(image, f"Player {entry['id']}", (x + 36, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)

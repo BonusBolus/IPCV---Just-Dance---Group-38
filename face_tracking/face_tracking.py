@@ -1,7 +1,11 @@
+from pathlib import Path
+
 import cv2
 import mediapipe as mp
 import numpy as np
 
+# Next to this file, so it is found no matter from which folder the game is started
+MODEL_PATH = Path(__file__).parent / "face_landmarker.task"
 
 # MediaPipe Face Landmarker setup
 BaseOptions = mp.tasks.BaseOptions
@@ -11,7 +15,7 @@ VisionRunningMode = mp.tasks.vision.RunningMode
 
 options = FaceLandmarkerOptions(
     base_options=BaseOptions(
-        model_asset_path="face_landmarker.task"
+        model_asset_path=str(MODEL_PATH)
     ),
     running_mode=VisionRunningMode.IMAGE,
     num_faces=10

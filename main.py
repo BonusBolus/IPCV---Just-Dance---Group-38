@@ -6,7 +6,6 @@ Run:  python main.py                 (webcam 0)
 Press q or ESC to quit, r to register the players again.
 """
 
-
 import argparse
 import cv2
 import time
@@ -15,18 +14,16 @@ from functions import put_text_right
 from camera import Camera, FPSCounter
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 from pose_tracking.pose_main import PoseEstimator, draw_keypoints
-from face_tracking import get_face_properties, smooth_face_properties
-from face_overlay import draw_face_outline
-from head_filter import enlarge_heads
-
-pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
+from face_tracking.face_tracking import get_face_properties, smooth_face_properties
+from face_tracking.face_overlay import draw_face_outline
+from face_tracking.head_filter import enlarge_heads
 from scene.scene import Scene
-
 from game_loop.game_loop import get_current_pose, load_song
 
+pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
+
+
 def process_frame(frame, tracker, song, start_time, scene):
-
-
     """Everything that happens with one camera frame. The tasks are added here:
 
     1. body pose estimation        (task 2)
@@ -39,7 +36,7 @@ def process_frame(frame, tracker, song, start_time, scene):
     """
     keypoints, motion = pose_estimator.process(frame.image)   # task 2: body keypoints, no identity yet
     people = people_from_pose(keypoints, min_confidence=0.1)  # box around each set of keypoints
-    tracked = tracker.update(frame.image, people)             # task 3: who is who
+    players = tracker.update(frame.image, people)             # task 3: {1: {...}, 2: {...}}, see new_player_entry()
 
     output = frame.image.copy()
     
@@ -48,7 +45,7 @@ def process_frame(frame, tracker, song, start_time, scene):
     enlarge_heads(output, faces, HEAD_ENLARGEMENT) # Enlarge detected heads
     # draw_face_outline(output, faces) # Draw oval shaped outline of heads
     # draw_keypoints(output, keypoints, confidence_threshold=0.1,)    # keypoints from body pose tracker, for debugging
-    # draw_labels(output, tracked)                                    # labels from identity tracker, for debugging
+    # draw_labels(output, players)                                    # labels from identity tracker, for debugging
 
 
     current_time = time.time()
@@ -60,7 +57,7 @@ def process_frame(frame, tracker, song, start_time, scene):
         current_pose = get_current_pose(song, song_time)
     put_text_right(output, f"Song Time: {song_time:.1f}", (output.shape[1], 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    output = scene.render(output, players, current_pose)
+    output = scene.render(output, list(players.values()), current_pose)
     return output
 
 
@@ -75,7 +72,6 @@ def main():
     fps = FPSCounter()
 
     scene = Scene()
-
     song = load_song("songs/song_1.json")
 
     start_time = time.time()
