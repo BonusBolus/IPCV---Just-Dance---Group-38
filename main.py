@@ -35,7 +35,7 @@ def process_frame(frame, tracker):
 
     output = frame.image.copy()
     draw_labels(output, tracked)
-    output = draw_keypoints(output, keypoints, confidence_threshold=0.1,)
+    draw_keypoints(output, keypoints, confidence_threshold=0.1,)
 
     return output
 

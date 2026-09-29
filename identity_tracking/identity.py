@@ -38,11 +38,11 @@ class Player:
     box: tuple              # last box where this player was seen
 
 
-def people_from_pose(keypoints, min_confidence=0.1, margin=0.1):
+def people_from_pose(keypoints, min_confidence=0.1, margin=0.08):
     """Turn the PoseEstimator output (num_people, 17, 3) into a list of Person.
 
     The box of a person is the smallest box around their keypoints that the model is sure
-    about, made `margin` (10%) larger on every side because the keypoints sit inside the body.
+    about, made `margin` (8%) larger on every side because the keypoints sit inside the body.
     People with fewer than 2 such keypoints are skipped: no box can be made for them.
     """
     people = []
@@ -58,26 +58,35 @@ def people_from_pose(keypoints, min_confidence=0.1, margin=0.1):
     return people
 
 
-def torso_box(person, min_confidence=0.5):
+def torso_box(person, min_confidence=0.5, torso_ratio=1.3):
     """Return the part of the person (x, y, w, h) that contains the shirt.
 
     The full box also contains background, the head, arms and legs, which spoil the average
     colour. With the pose keypoints we know where the shirt is: between the shoulders and the
-    hips. We take the middle 60% of that width and 10% to 90% of that height, so the arms and
-    the trousers stay out.
+    hips. We take the middle 90% of that width, from the shoulder line down to 90% of that
+    height, so the arms and the trousers stay out.
 
-    If a shoulder or hip is not visible (e.g. sitting close to the camera), fall back to a fixed
-    part of the person box: the middle 50% of the width, and 25% to 55% of the height.
+    If the hips are not visible (e.g. standing close to the camera, hips below the image), the
+    hip height is estimated from the shoulders: for most people the distance from shoulders to
+    hips is about 1.3 x the shoulder width (`torso_ratio`). Whatever falls below the image is
+    cut off by cut_region.
+
+    If a shoulder is not visible either, fall back to a fixed part of the person box: the middle
+    50% of the width, and 25% to 55% of the height.
     """
     kp = person.keypoints
-    torso = [LEFT_SHOULDER, RIGHT_SHOULDER, LEFT_HIP, RIGHT_HIP]
-    if all(kp[i, 2] >= min_confidence for i in torso):
-        x1, x2 = kp[torso, 0].min(), kp[torso, 0].max()
-        top = (kp[LEFT_SHOULDER, 1] + kp[RIGHT_SHOULDER, 1]) / 2
-        bottom = (kp[LEFT_HIP, 1] + kp[RIGHT_HIP, 1]) / 2
+    shoulders = [LEFT_SHOULDER, RIGHT_SHOULDER]
+    hips = [i for i in (LEFT_HIP, RIGHT_HIP) if kp[i, 2] >= min_confidence]
+    if all(kp[i, 2] >= min_confidence for i in shoulders):
+        x1, x2 = kp[shoulders + hips, 0].min(), kp[shoulders + hips, 0].max()
+        top = kp[shoulders, 1].mean()
+        if hips:
+            bottom = kp[hips, 1].mean()
+        else:
+            bottom = top + torso_ratio * abs(kp[LEFT_SHOULDER, 0] - kp[RIGHT_SHOULDER, 0])
         w, h = x2 - x1, bottom - top
         if w > 4 and h > 4:  # a person standing sideways has almost no torso width
-            return (int(x1 + 0.2 * w), int(top + 0.1 * h), int(0.6 * w), int(0.8 * h))
+            return (int(x1 + 0.05 * w), int(top), int(0.9 * w), int(0.9 * h))
     x, y, w, h = person.box
     return (x + w // 4, y + h // 4, w // 2, int(h * 0.3))
 
