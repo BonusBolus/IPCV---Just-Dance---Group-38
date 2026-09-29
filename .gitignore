@@ -216,3 +216,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# downloaded model weights
+detection/models/
+
+# Yolo models
+yolo26n-pose.pt

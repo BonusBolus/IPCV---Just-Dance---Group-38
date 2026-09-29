@@ -3,21 +3,27 @@
 Run:  python main.py                 (webcam 0)
       python main.py --camera 1      (other webcam)
       python main.py --video file.mp4
-Press q or ESC to quit.
+Press q or ESC to quit, r to register the players again.
 """
-import argparse
 
+
+import argparse
 import cv2
 import time
 
 from functions import put_text_right
-
 from camera import Camera, FPSCounter
+from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
+from pose_tracking.pose_main import PoseEstimator, draw_keypoints
+
+
+pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 from scene.scene import Scene
 
 from game_loop.game_loop import get_current_pose, load_song
 
-def process_frame(frame, song, start_time, scene):
+def process_frame(frame, tracker, song, start_time, scene):
+
     """Everything that happens with one camera frame. The tasks are added here:
 
     1. body pose estimation        (task 2)
@@ -28,7 +34,14 @@ def process_frame(frame, song, start_time, scene):
 
     Returns the image that is shown on screen.
     """
+    keypoints, motion = pose_estimator.process(frame.image)   # task 2: body keypoints, no identity yet
+    people = people_from_pose(keypoints, min_confidence=0.1)  # box around each set of keypoints
+    tracked = tracker.update(frame.image, people)             # task 3: who is who
+
     output = frame.image.copy()
+    # draw_keypoints(output, keypoints, confidence_threshold=0.1,)    # keypoints from body pose tracker, for debugging
+    # draw_labels(output, tracked)                                    # labels from identity tracker, for debugging
+
 
     current_time = time.time()
     song_start_time = 5
@@ -50,6 +63,7 @@ def main():
     args = parser.parse_args()
 
     camera = Camera(args.video if args.video else args.camera)
+    tracker = IdentityTracker(max_players=2)
     fps = FPSCounter()
 
     scene = Scene()
@@ -63,7 +77,7 @@ def main():
         if frame is None:
             break
 
-        output = process_frame(frame, song, start_time, scene)
+        output = process_frame(frame, tracker, song, start_time, scene)
 
         fps.update()
         cv2.putText(output, f"FPS: {fps.fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
@@ -72,6 +86,8 @@ def main():
         key = cv2.waitKey(1) & 0xFF
         if key in (ord("q"), 27):
             break
+        if key == ord("r"):
+            tracker.reset()
 
     camera.release()
     cv2.destroyAllWindows()
