@@ -2,7 +2,6 @@
 import sys
 import time
 from dataclasses import dataclass
-
 import cv2
 import numpy as np
 
@@ -60,14 +59,3 @@ class FPSCounter:
         if len(self.times) < 2:
             return 0.0
         return (len(self.times) - 1) / (self.times[-1] - self.times[0])
-
-
-def prepare_for_model(image, width=640):
-    """Downscale a frame and convert it to RGB, the input most models (e.g. MediaPipe) expect.
-
-    Running the models on a smaller image is much faster. Their outputs are normalized
-    coordinates (0..1), so they can be drawn on the full-size frame directly.
-    """
-    h, w = image.shape[:2]
-    small = cv2.resize(image, (width, int(h * width / w)))
-    return cv2.cvtColor(small, cv2.COLOR_BGR2RGB)
