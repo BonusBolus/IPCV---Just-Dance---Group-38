@@ -2,5 +2,6 @@ numpy
 opencv-python
 opencv-contrib-python
 mediapipe
+pymixbox
 scipy
 ultralytics

@@ -1,0 +1,72 @@
+{
+    "bpm": 120,
+    "move_list": [
+        {
+            "beat_index": 0,
+            "move": "cactus"
+        },
+        {
+            "beat_index": 3,
+            "move": "t_pose"
+        },
+        {
+            "beat_index": 6,
+            "move": "pencil"
+        },{
+            "beat_index": 9,
+            "move": "cactus"
+        },
+        {
+            "beat_index": 12,
+            "move": "t_pose"
+        },
+        {
+            "beat_index": 15,
+            "move": "pencil"
+        },{
+            "beat_index": 18,
+            "move": "cactus"
+        },
+        {
+            "beat_index": 21,
+            "move": "t_pose"
+        },
+        {
+            "beat_index": 24,
+            "move": "pencil"
+        },{
+            "beat_index": 27,
+            "move": "cactus"
+        },
+        {
+            "beat_index": 30,
+            "move": "t_pose"
+        },
+        {
+            "beat_index": 33,
+            "move": "pencil"
+        },{
+            "beat_index": 36,
+            "move": "cactus"
+        },
+        {
+            "beat_index": 39,
+            "move": "t_pose"
+        },
+        {
+            "beat_index": 42,
+            "move": "pencil"
+        },{
+            "beat_index": 45,
+            "move": "cactus"
+        },
+        {
+            "beat_index": 48,
+            "move": "t_pose"
+        },
+        {
+            "beat_index": 51,
+            "move": "pencil"
+        }
+    ]
+}
