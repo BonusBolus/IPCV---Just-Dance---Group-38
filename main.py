@@ -34,8 +34,8 @@ def process_frame(frame, tracker):
     tracked = tracker.update(frame.image, people)             # task 3: who is who
 
     output = frame.image.copy()
-    draw_labels(output, tracked)
-    draw_keypoints(output, keypoints, confidence_threshold=0.1,)
+    # draw_keypoints(output, keypoints, confidence_threshold=0.1,)    # keypoints from body pose tracker, for debugging
+    # draw_labels(output, tracked)                                    # labels from identity tracker, for debugging
 
     return output
 
