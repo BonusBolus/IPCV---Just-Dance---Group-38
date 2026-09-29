@@ -14,16 +14,16 @@ import time
 from functions import put_text_right
 from camera import Camera, FPSCounter
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
-from pose_tracking.pose_main import PoseEstimator, draw_keypoints
+from pose_tracking.pose_processing import PoseEstimator
 
 
 from pose_tracking.pose_processing import PoseEstimator
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
+
 from scene.scene import createScene
 from poses.poses import poses
 from game_logic.pose_grading import PoseGrader
 pose_grader = PoseGrader()
-pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 from scene.scene import Scene
 
 from game_loop.game_loop import get_current_pose, load_song
@@ -40,37 +40,24 @@ def process_frame(frame, tracker, song, start_time, scene):
 
     Returns the image that is shown on screen.
     """
-    keypoints, motion = pose_estimator.process(frame.image)   # task 2: body keypoints, no identity yet
-    people = people_from_pose(keypoints, min_confidence=0.1)  # box around each set of keypoints
-    tracked = tracker.update(frame.image, people)             # task 3: who is who
-
+    
     output = frame.image.copy()
     
-    keypoints, motion = pose_estimator.process(output)
-    score = pose_grader.grade_pose(keypoints[0], "cactus")
     
-    if len(keypoints) > 0:
+    keypoints, motion = pose_estimator.process(frame.image)   # task 2: body keypoints, no identity yet
+    people = people_from_pose(keypoints, min_confidence=0.1)  # box around each set of keypoints
+    tracked = tracker.update(frame.image, people)             # task 3: who is who  
+
+    for player_id, keypoints in tracked.items():
         
-        score = pose_grader.grade_pose(
-                keypoints[0],
-                "cactus",
-            )
+        if player_id <= 2: # Only track Player 1 and Player 2
+            score = pose_grader.grade_pose(keypoints, "cactus")
 
-        draw_pose_comparison(
-                output,
-                keypoints[0],
-                pose_grader,
-                "cactus",
-            )
-
-        draw_keypoints(
-            output,
-            keypoints,
-            confidence_threshold=0.1,
-        )
-
-        return output
-    
+            player_name = f"Player {player_id}"
+            
+            # Needs to be initialed first time, otherwise KeyError
+            players[player_name]["score"] += score
+            players[player_name]["keypoints"] = keypoints
     
 
 
