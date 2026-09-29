@@ -11,7 +11,7 @@ import argparse
 import cv2
 from camera import Camera, FPSCounter
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
-from pose_tracking.pose_main import PoseEstimator
+from pose_tracking.pose_main import PoseEstimator, draw_keypoints
 
 
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
@@ -35,7 +35,7 @@ def process_frame(frame, tracker):
 
     output = frame.image.copy()
     draw_labels(output, tracked)
-    output = PoseEstimator.draw_keypoints(output, keypoints, confidence_threshold=0.1,)
+    output = draw_keypoints(output, keypoints, confidence_threshold=0.1,)
 
     return output
 
