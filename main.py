@@ -11,6 +11,9 @@ import cv2
 
 from camera import Camera, FPSCounter
 
+from face_tracking import get_face_properties, smooth_face_properties
+from face_overlay import draw_face_outline
+from head_filter import enlarge_heads
 
 def process_frame(frame):
     """Everything that happens with one camera frame. The tasks are added here:
@@ -24,6 +27,12 @@ def process_frame(frame):
     Returns the image that is shown on screen.
     """
     output = frame.image.copy()
+    
+    faces = smooth_face_properties(get_face_properties(output)) # Get properties of every detected face
+    HEAD_ENLARGEMENT = 1.35
+    enlarge_heads(output, faces, HEAD_ENLARGEMENT) # Enlarge detected heads
+    # draw_face_outline(output, faces) # Draw oval shaped outline of heads
+
     return output
 
 
