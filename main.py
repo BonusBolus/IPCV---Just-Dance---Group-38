@@ -8,13 +8,16 @@ Press q or ESC to quit.
 import argparse
 
 import cv2
+import time
+
+from functions import put_text_right
 
 from camera import Camera, FPSCounter
+from scene.scene import Scene
 
-from scene.scene import createScene
-from poses.poses import poses
+from game_loop.game_loop import get_current_pose, load_song
 
-def process_frame(frame):
+def process_frame(frame, song, start_time, scene):
     """Everything that happens with one camera frame. The tasks are added here:
 
     1. body pose estimation        (task 2)
@@ -27,58 +30,16 @@ def process_frame(frame):
     """
     output = frame.image.copy()
 
-    current_pose = poses["t_pose"]  # Example current pose
-    example_player_1 = {
-        "ID": 0,
-        "color": (0, 0, 255),  # Example color for Player 1 (RGB)
-        "score": 100,
-        "keypoints": {
-            "nose":           (340, 120),
-            "left_eye":       (320, 104),
-            "right_eye":      (360, 104),
-            "left_ear":       (298, 110),
-            "right_ear":      (382, 110),
-            "left_shoulder":  (258, 203),
-            "right_shoulder": (422, 203),
-            "left_elbow":     (126, 203),
-            "right_elbow":    (555, 203),
-            "left_wrist":     (126, 71),
-            "right_wrist":    (555, 335),
-            "left_hip":       (282, 368),
-            "right_hip":      (398, 368),
-            "left_knee":      (258, 491),
-            "right_knee":     (422, 491),
-            "left_ankle":     (266, 615),
-            "right_ankle":    (414, 615),
-        },
-    }
+    current_time = time.time()
+    song_start_time = 5
+    song_time = current_time - start_time - song_start_time
+    if current_time - start_time < song_start_time:
+        current_pose = None
+    else:
+        current_pose = get_current_pose(song, song_time)
+    put_text_right(output, f"Song Time: {song_time:.1f}", (output.shape[1], 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
 
-    example_player_2 = {
-        "ID": 1,
-        "color": (0, 255, 0),  # Example color for Player 2 (RGB)
-        "score": 200,
-        "keypoints": {
-            "nose":           (940, 120),
-            "left_eye":       (920, 104),
-            "right_eye":      (960, 104),
-            "left_ear":       (898, 110),
-            "right_ear":      (982, 110),
-            "left_shoulder":  (858, 203),
-            "right_shoulder": (1022, 203),
-            "left_elbow":     (726, 203),
-            "right_elbow":    (1155, 203),
-            "left_wrist":     (726, 71),
-            "right_wrist":    (1155, 335),
-            "left_hip":       (882, 368),
-            "right_hip":      (998, 368),
-            "left_knee":      (858, 491),
-            "right_knee":     (1022, 491),
-            "left_ankle":     (866, 615),
-            "right_ankle":    (1014, 615),
-        },
-    }
-    players = [example_player_1, example_player_2]  # Example list of players
-    output = createScene(output, players, current_pose)
+    output = scene.render(output, players, current_pose)
     return output
 
 
@@ -91,12 +52,18 @@ def main():
     camera = Camera(args.video if args.video else args.camera)
     fps = FPSCounter()
 
+    scene = Scene()
+
+    song = load_song("songs/song_1.json")
+
+    start_time = time.time()
+
     while True:
         frame = camera.read()
         if frame is None:
             break
 
-        output = process_frame(frame)
+        output = process_frame(frame, song, start_time, scene)
 
         fps.update()
         cv2.putText(output, f"FPS: {fps.fps:.1f}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 255, 0), 2)
