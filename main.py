@@ -11,8 +11,9 @@ import argparse
 import cv2
 from camera import Camera, FPSCounter
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
-
 from pose_tracking.pose_main import PoseEstimator
+
+
 pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 
 
@@ -34,38 +35,9 @@ def process_frame(frame, tracker):
 
     output = frame.image.copy()
     draw_labels(output, tracked)
-    output = draw_keypoints(
-        output,
-        keypoints,
-        confidence_threshold=0.1,
-    )
+    output = PoseEstimator.draw_keypoints(output, keypoints, confidence_threshold=0.1,)
 
     return output
-
-def draw_keypoints(image, keypoints, confidence_threshold=0.1):
-    """
-    Draw detected pose keypoints on the image.
-
-    keypoints shape:
-        (num_people, num_keypoints, 3)
-
-    Last dimension:
-        [x, y, confidence]
-    """
-    for person in keypoints:
-        for x, y, confidence in person:
-            if confidence < confidence_threshold:
-                continue
-
-            cv2.circle(
-                image,
-                (int(x), int(y)),
-                4,
-                (0, 255, 0),
-                -1,
-            )
-
-    return image
 
 
 def main():
