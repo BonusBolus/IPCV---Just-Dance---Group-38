@@ -44,14 +44,14 @@ class Scene:
                     x, y = keypoints[keypoint]
                     cv2.circle(frame, (x, y), 5, color, -1)
 
-            if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
-                continue
-            head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
-            head_center = (
-                (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
-                keypoints["right_eye"][1],
-            )
-            cv2.circle(frame, head_center, head_width // 2, color, -1)
+            # if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
+            #     continue
+            # head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
+            # head_center = (
+            #     (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
+            #     keypoints["right_eye"][1],
+            # )
+            # cv2.circle(frame, head_center, head_width // 2, color, -1)
         return frame
 
     def _add_title(self, frame, title_height, colors):
