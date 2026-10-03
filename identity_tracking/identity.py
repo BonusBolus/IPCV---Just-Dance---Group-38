@@ -270,11 +270,16 @@ class IdentityTracker:
 
         for i, person in enumerate(people):
             player = assigned[i]
-            # 5. no player yet, and there is room: register a new player
+
             if player is None and len(self.players) < self.max_players:
-                player = Player(id=len(self.players) + 1, color=colors[i], histogram=histograms[i], box=person.box)
+                player = Player(
+                    id=len(self.players) + 1,
+                    color=colors[i],
+                    histogram=histograms[i],
+                    box=person.box
+                )
                 self.players.append(player)
-            # 6. update: remember where the player is, and follow slow lighting changes
+
             elif player is not None:
                 player.color = 0.9 * player.color + 0.1 * colors[i]
                 player.histogram = 0.9 * player.histogram + 0.1 * histograms[i]
