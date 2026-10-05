@@ -195,5 +195,4 @@ class PoseGrader:
         
         # Convert error to score between approximately 0 and 100
         score = 100.0 * np.exp(-2.0 * mean_error)
-        print(score)
         return score
