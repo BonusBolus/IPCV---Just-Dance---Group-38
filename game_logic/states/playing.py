@@ -87,8 +87,9 @@ class PlayingState(State):
             return
         for i in PLAYER_IDS:
             score = self.best[i] or 0.0
-            points = score * 2 if self.move.gold else score
-            game.players[i]["score"] += round(points)
+            points = round(score * 2 if self.move.gold else score)
+            game.players[i]["score"] += points
+            game.players[i]["last_move_points"] = points
             self.ratings[i] = (rating(score), game.now)
         self.move = None
         self.best = {i: None for i in PLAYER_IDS}
@@ -113,7 +114,12 @@ class PlayingState(State):
         if t < 1.0:
             image = draw_big_text(image, "Dance!")
         if game.debug:
-            lines = [f"P{i} live: {'-' if s is None else f'{s:.0f}'}" for i, s in self.live.items()]
+            lines = []
+            for i in PLAYER_IDS:
+                live_str = '-' if self.live[i] is None else f'{self.live[i]:.0f}'
+                last_pts = game.players[i].get("last_move_points")
+                last_str = '-' if last_pts is None else f'{last_pts} pts'
+                lines.append(f"P{i} live: {live_str:>3} | last move: {last_str}")
             for row, line in enumerate([f"t = {t:.1f} s"] + lines):
                 image = draw_text(image, line, (90, 140 + 25 * row), 0.6, GREEN)
         return image

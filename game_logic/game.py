@@ -75,6 +75,11 @@ class Game:
         if self.debug:
             draw_labels(image, self.players)
             draw_face_outline(image, faces)
+            self.scene.draw_player(image, self.players)
+            t = self.song.time()
+            current_move = self.song.current_move(t) or self.song.grading_move(t) or self.song.next_move(t)
+            if current_move is not None:
+                self.scene.draw_target_pose_overlay(image, self.players, current_move.pose)
 
         image = self.state.draw(self, image)
         if self.debug:

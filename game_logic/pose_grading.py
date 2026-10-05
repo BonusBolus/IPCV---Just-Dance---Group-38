@@ -1,199 +1,247 @@
+import json
+from pathlib import Path
+
 import numpy as np
+
 
 class PoseGrader:
 
-    # Reference poses, measured on a real player (made symmetric), in the units of _normalize_keypoints():
-    # x in shoulder widths (shoulders at -0.5 and 0.5), y so that nose -> middle of the hips = 2.
-    # left_* is on the left of the screen (the game swaps YOLO's left/right before grading).
-    # Knees and ankles are None: these poses do not use the legs, and a webcam often cannot see them.
-    # The grader skips None points (see _preprocess_pose). A pose that uses the legs can add them back.
-    cactus = {
-    "name": "Cactus",
-    "keypoints": {
-        "nose": (0,0),
-        "left_eye": None,
-        "right_eye": None,
-        "left_ear": None,
-        "right_ear": None,
-        "left_shoulder": (-0.5,0.5),
-        "right_shoulder": (0.5,0.5),
-        "left_elbow": (-1.2,0.7),
-        "right_elbow": (1.2,0.7),
-        "left_wrist": (-1.25,-0.1),
-        "right_wrist": (1.25,1.35),
-        "left_hip": (-0.35,2),
-        "right_hip": (0.35,2),
-        "left_knee": None,
-        "right_knee": None,
-        "left_ankle": None,
-        "right_ankle": None,
-        }
-    }
-
-    t_pose = {
-        "name": "T-Pose",
-        "keypoints": {
-            "nose": (0,0),
-            "left_eye": None,
-            "right_eye": None,
-            "left_ear": None,
-            "right_ear": None,
-            "left_shoulder": (-0.5,0.5),
-            "right_shoulder": (0.5,0.5),
-            "left_elbow": (-1.4,0.6),
-            "right_elbow": (1.4,0.6),
-            "left_wrist": (-2.2,0.55),
-            "right_wrist": (2.2,0.55),
-            "left_hip": (-0.35,2),
-            "right_hip": (0.35,2),
-            "left_knee": None,
-            "right_knee": None,
-            "left_ankle": None,
-            "right_ankle": None
-            }
-    }
-
-    pencil = {
-        "name": "Pencil",
-        "keypoints": {
-            "nose": (0,0),
-            "left_eye": None,
-            "right_eye": None,
-            "left_ear": None,
-            "right_ear": None,
-            "left_shoulder": (-0.5,0.55),
-            "right_shoulder": (0.5,0.55),
-            "left_elbow": (-0.7,1.35),
-            "right_elbow": (0.7,1.35),
-            "left_wrist": (-0.95,2.1),
-            "right_wrist": (0.95,2.1),
-            "left_hip": (-0.35,2),
-            "right_hip": (0.35,2),
-            "left_knee": None,
-            "right_knee": None,
-            "left_ankle": None,
-            "right_ankle": None
-            }
-    }
-
-    poses = {
-        "cactus": cactus,
-        "t_pose": t_pose,
-        "pencil": pencil,
-    }
-
-        
     KEYPOINTS = {
-                "nose": 0,
-                "left_eye": 1,
-                "right_eye": 2,
-                "left_ear": 3,
-                "right_ear": 4,
-                "left_shoulder": 5,
-                "right_shoulder": 6,
-                "left_elbow": 7,
-                "right_elbow": 8,
-                "left_wrist": 9,
-                "right_wrist": 10,
-                "left_hip": 11,
-                "right_hip": 12,
-                "left_knee": 13,
-                "right_knee": 14,
-                "left_ankle": 15,
-                "right_ankle": 16,
-            }
-    
+        "nose": 0,
+        "left_eye": 1,
+        "right_eye": 2,
+        "left_ear": 3,
+        "right_ear": 4,
+        "left_shoulder": 5,
+        "right_shoulder": 6,
+        "left_elbow": 7,
+        "right_elbow": 8,
+        "left_wrist": 9,
+        "right_wrist": 10,
+        "left_hip": 11,
+        "right_hip": 12,
+        "left_knee": 13,
+        "right_knee": 14,
+        "left_ankle": 15,
+        "right_ankle": 16,
+    }
+
     def __init__(self):
-        
-        #Convert all poses to numpy arrays for easier processing
+        pose_file = Path("choreography") / "poses.json"
+
+        with open(pose_file, "r") as f:
+            self.poses = json.load(f)
+
+        # Convert reference keypoints to reference angles once
         self.processed_poses = {
-            name: self._preprocess_pose(pose)
+            name: {
+                "name": pose["name"],
+                "angles": self._get_reference_angles(pose["keypoints"]),
+            }
             for name, pose in self.poses.items()
         }
-        
-    def _preprocess_pose(self, pose):
-        
-        # Remove keypoints that are None in reference pose
-        valid = [
-            (name, position)
-            for name, position in pose["keypoints"].items()
-            if position is not None
-        ]
-        
-        # Convert the readable names to YOLO keypoint indices, these are still used by all keypoint arrays, so we need to keep track of them
-        indices = np.array(
-            [self.KEYPOINTS[name] for name, _ in valid],
-            dtype=np.int32,
+
+    def _angle(self, vector):
+        """
+        Directed angle:
+            0°    = right
+            90°   = down
+            180°  = left
+            -90°  = up
+        """
+        return np.degrees(
+            np.arctan2(vector[1], vector[0])
         )
-        
-        # Get corresponiding reference positions per keypoint. 
-        reference = np.array(
-            [position for _, position in valid],
+
+    def _angle_difference(self, angle_a, angle_b):
+        """Smallest difference between two angles."""
+        return abs(
+            (angle_a - angle_b + 180.0) % 360.0 - 180.0
+        )
+
+    def _get_reference_angles(self, keypoints):
+        """
+        Convert reference keypoint coordinates from poses.json
+        to directed limb angles.
+        """
+
+        def point(name):
+            return np.asarray(keypoints[name], dtype=np.float32)
+
+        angles = {}
+
+        for side in ("left", "right"):
+
+            shoulder = point(f"{side}_shoulder")
+            elbow = point(f"{side}_elbow")
+            wrist = point(f"{side}_wrist")
+
+            hip = point(f"{side}_hip")
+            knee = point(f"{side}_knee")
+            ankle = point(f"{side}_ankle")
+
+            angles[f"{side}_shoulder"] = self._angle(
+                elbow - shoulder
+            )
+
+            angles[f"{side}_elbow"] = self._angle(
+                wrist - elbow
+            )
+
+            angles[f"{side}_hip"] = self._angle(
+                knee - hip
+            )
+
+            angles[f"{side}_knee"] = self._angle(
+                ankle - knee
+            )
+
+        return angles
+
+    def _body_coordinate_system(self, player):
+        """
+        Local body coordinate system.
+
+        x-axis: left shoulder -> right shoulder
+        y-axis: shoulder center -> hip center
+        """
+
+        left_shoulder = player[
+            self.KEYPOINTS["left_shoulder"], :2
+        ]
+
+        right_shoulder = player[
+            self.KEYPOINTS["right_shoulder"], :2
+        ]
+
+        left_hip = player[
+            self.KEYPOINTS["left_hip"], :2
+        ]
+
+        right_hip = player[
+            self.KEYPOINTS["right_hip"], :2
+        ]
+
+        shoulder_center = (
+            left_shoulder + right_shoulder
+        ) / 2.0
+
+        hip_center = (
+            left_hip + right_hip
+        ) / 2.0
+
+        x_axis = right_shoulder - left_shoulder
+        x_axis /= np.linalg.norm(x_axis)
+
+        y_axis = hip_center - shoulder_center
+        y_axis /= np.linalg.norm(y_axis)
+
+        return x_axis, y_axis
+
+    def _vector_to_body_coordinates(
+        self,
+        vector,
+        x_axis,
+        y_axis,
+    ):
+        return np.array([
+            np.dot(vector, x_axis),
+            np.dot(vector, y_axis),
+        ])
+
+    def _get_player_angles(self, player_keypoints):
+
+        player = np.asarray(
+            player_keypoints,
             dtype=np.float32,
         )
-        
-        #return a dictionary with the name of the pose, the indices of the keypoints, and the reference positions
-        return {
-            "name": pose["name"],
-            "indices": indices,
-            "reference": reference,
-        }
-        
-    def _normalize_keypoints(self, player_keypoints):
-        if player_keypoints is None:
-            raise ValueError("player_keypoints is None")
 
-        player = np.asarray(player_keypoints, dtype=np.float32)
-        if player.ndim != 2 or player.shape[1] not in (2, 3):
-            raise ValueError(f"Expected keypoints with shape (N, 2 or 3), got {player.shape}")
+        x_axis, y_axis = self._body_coordinate_system(player)
 
-        player = player.copy()
+        angles = {}
 
-        # Center on nose
-        nose = player[self.KEYPOINTS["nose"], :2].copy()
-        player[:, :2] -= nose
+        for side in ("left", "right"):
 
-        # Horizontal scale: shoulder width
-        left_shoulder = player[self.KEYPOINTS["left_shoulder"], :2]
-        right_shoulder = player[self.KEYPOINTS["right_shoulder"], :2]
+            shoulder = player[
+                self.KEYPOINTS[f"{side}_shoulder"], :2
+            ]
 
-        shoulder_width = np.linalg.norm(
-            right_shoulder - left_shoulder
-        )
+            elbow = player[
+                self.KEYPOINTS[f"{side}_elbow"], :2
+            ]
 
-        # Vertical scale: nose -> hip center
-        left_hip = player[self.KEYPOINTS["left_hip"], :2]
-        right_hip = player[self.KEYPOINTS["right_hip"], :2]
+            wrist = player[
+                self.KEYPOINTS[f"{side}_wrist"], :2
+            ]
 
-        hip_center = (left_hip + right_hip) / 2
+            hip = player[
+                self.KEYPOINTS[f"{side}_hip"], :2
+            ]
 
-        torso_height = abs(hip_center[1])
+            knee = player[
+                self.KEYPOINTS[f"{side}_knee"], :2
+            ]
 
-        player[:, 0] /= shoulder_width
-        player[:, 1] /= torso_height / 2.0
+            ankle = player[
+                self.KEYPOINTS[f"{side}_ankle"], :2
+            ]
 
-        return player
+            upper_arm = self._vector_to_body_coordinates(
+                elbow - shoulder,
+                x_axis,
+                y_axis,
+            )
+
+            forearm = self._vector_to_body_coordinates(
+                wrist - elbow,
+                x_axis,
+                y_axis,
+            )
+
+            thigh = self._vector_to_body_coordinates(
+                knee - hip,
+                x_axis,
+                y_axis,
+            )
+
+            lower_leg = self._vector_to_body_coordinates(
+                ankle - knee,
+                x_axis,
+                y_axis,
+            )
+
+            angles[f"{side}_shoulder"] = self._angle(upper_arm)
+            angles[f"{side}_elbow"] = self._angle(forearm)
+            angles[f"{side}_hip"] = self._angle(thigh)
+            angles[f"{side}_knee"] = self._angle(lower_leg)
+
+        return angles
 
     def grade_pose(self, player_keypoints, reference_pose):
-        
-        player = self._normalize_keypoints(player_keypoints)
-        
-        pose = self.processed_poses[reference_pose]
-        
-        # Only select keypoints that are defined in the reference pose
-        player_positions = player[
-            pose["indices"], :2
-        ]
-        
-        # Euclidean error for every keypoint
-        errors = np.linalg.norm(
-            player_positions - pose["reference"],
-            axis=1,
+
+        player_angles = self._get_player_angles(
+            player_keypoints
         )
-        
-        mean_error = errors.mean()
-        
-        # Convert error to score between approximately 0 and 100
-        score = 100.0 * np.exp(-2.0 * mean_error)
-        print(score)
+
+        reference_angles = self.processed_poses[
+            reference_pose
+        ]["angles"]
+
+        errors = []
+
+        for joint, target_angle in reference_angles.items():
+
+            error = self._angle_difference(
+                player_angles[joint],
+                target_angle,
+            )
+
+            errors.append(error)
+
+        mean_error = np.mean(errors)
+
+        score = 100.0 * np.exp(
+            -mean_error / 30.0
+        )
+
         return score

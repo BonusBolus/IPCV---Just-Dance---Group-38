@@ -1,6 +1,8 @@
+import math
 import cv2
 
 from scene.functions import RATING_COLORS, draw_text, mix_colors, put_text_center, put_text_left, put_text_right, scale_for_height
+from scene.pose_figure import BONES
 
 class Scene:
     def __init__(self, color_key="player_color"):
@@ -38,28 +40,82 @@ class Scene:
         return frame
 
     def draw_player(self, frame, players):
-        """Draws the keypoints and a head circle in the player color, for debugging. players: dict from IdentityTracker.update()."""
+        """Draws keypoints and skeleton bones in the player color, for debugging."""
         for player in players.values():
             if not player["visible"]:
                 continue
             keypoints = player["keypoints"]
-            color = player[self.color_key][::-1]
+            color = player[self.color_key][::-1]  # RGB to BGR
 
-            for keypoint in keypoints:
-                if keypoints[keypoint] is not None and keypoint not in [
-                    "left_eye", "right_eye", "left_ear", "right_ear", "nose"
-                ]:
-                    x, y = keypoints[keypoint]
-                    cv2.circle(frame, (x, y), 5, color, -1)
+            # Derive neck keypoint if shoulders exist
+            ls = keypoints.get("left_shoulder")
+            rs = keypoints.get("right_shoulder")
+            neck = ((ls[0] + rs[0]) // 2, (ls[1] + rs[1]) // 2) if (ls is not None and rs is not None) else None
 
-            # if any(keypoints[name] is None for name in ("left_ear", "right_ear", "left_eye", "right_eye")):
-            #     continue
-            # head_width = abs(keypoints["right_ear"][0] - keypoints["left_ear"][0])
-            # head_center = (
-            #     (keypoints["right_eye"][0] + keypoints["left_eye"][0]) // 2,
-            #     keypoints["right_eye"][1],
-            # )
-            # cv2.circle(frame, head_center, head_width // 2, color, -1)
+            pts = {**keypoints, "neck": neck}
+
+            # Draw bones
+            for start, end in BONES:
+                p1 = pts.get(start)
+                p2 = pts.get(end)
+                if p1 is not None and p2 is not None:
+                    cv2.line(frame, p1, p2, color, 3)
+
+            # Draw keypoint dots
+            for keypoint, pos in pts.items():
+                if pos is not None and keypoint not in ("left_eye", "right_eye", "left_ear", "right_ear"):
+                    cv2.circle(frame, pos, 5, color, -1)
+        return frame
+
+    def draw_target_pose_overlay(self, frame, players, pose):
+        """Overlay the target reference pose stick figure onto each visible player, for debugging."""
+        if pose is None:
+            return frame
+
+        pose_points = {**pose, "neck": (0, 0.3)}
+        overlay_color = (0, 255, 255)  # Bright yellow (BGR) overlay for target pose comparison
+
+        for player in players.values():
+            if not player["visible"]:
+                continue
+
+            kp = player["keypoints"]
+            ls = kp.get("left_shoulder")
+            rs = kp.get("right_shoulder")
+
+            if ls is not None and rs is not None:
+                center_x = (ls[0] + rs[0]) / 2.0
+                center_y = (ls[1] + rs[1]) / 2.0
+                shoulder_dist = math.hypot(rs[0] - ls[0], rs[1] - ls[1])
+                scale = max(shoulder_dist, 30.0)
+            elif player["box"] is not None:
+                bx, by, bw, bh = player["box"]
+                center_x = bx + bw / 2.0
+                center_y = by + bh * 0.3
+                scale = bw * 0.6
+            else:
+                continue
+
+            target_pixel_pts = {}
+            for k, pt in pose_points.items():
+                if pt is not None:
+                    px, py = pt
+                    px_pixel = int(center_x + px * scale)
+                    py_pixel = int(center_y + (py - 0.5) * scale)
+                    target_pixel_pts[k] = (px_pixel, py_pixel)
+
+            for start, end in BONES:
+                p1 = target_pixel_pts.get(start)
+                p2 = target_pixel_pts.get(end)
+                if p1 is not None and p2 is not None:
+                    cv2.line(frame, p1, p2, overlay_color, 2)
+
+            for k, pt in target_pixel_pts.items():
+                cv2.circle(frame, pt, 4, overlay_color, -1)
+
+            if "nose" in target_pixel_pts:
+                cv2.circle(frame, target_pixel_pts["nose"], int(scale * 0.2), overlay_color, 2)
+
         return frame
 
     def _add_title(self, frame, title_height, colors):

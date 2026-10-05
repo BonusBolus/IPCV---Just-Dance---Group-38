@@ -72,6 +72,7 @@ def new_player_entry(player_id):
         "color": DEFAULT_COLORS.get(player_id, (255, 255, 255)),
         "player_color": DEFAULT_COLORS.get(player_id, (255, 255, 255)),
         "score": 0,
+        "last_move_points": None,
         "keypoints": {name: None for name in KEYPOINT_NAMES},
         "keypoints_raw": None,
         "box": None,
@@ -309,4 +310,7 @@ def draw_labels(image, players):
         cv2.rectangle(image, (x, y), (x + w, y + h), color, 3)
         cv2.rectangle(image, (tx, ty), (tx + tw, ty + th), (255, 255, 255), 1)
         cv2.rectangle(image, (x, y - 30), (x + 30, y), color, -1)  # colour swatch
-        cv2.putText(image, f"Player {entry['id']}", (x + 36, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
+        label = f"Player {entry['id']}"
+        if entry.get("last_move_points") is not None:
+            label += f" ({entry['last_move_points']} pts)"
+        cv2.putText(image, label, (x + 36, y - 8), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2)
