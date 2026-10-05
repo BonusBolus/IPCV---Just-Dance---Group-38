@@ -5,4 +5,4 @@ mediapipe
 pymixbox
 scipy
 ultralytics
-pygame
+pygame-ce
