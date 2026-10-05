@@ -1,7 +1,12 @@
 import numpy as np
 
 class PoseGrader:
-    
+
+    # Reference poses, measured on a real player (made symmetric), in the units of _normalize_keypoints():
+    # x in shoulder widths (shoulders at -0.5 and 0.5), y so that nose -> middle of the hips = 2.
+    # left_* is on the left of the screen (the game swaps YOLO's left/right before grading).
+    # Knees and ankles are None: these poses do not use the legs, and a webcam often cannot see them.
+    # The grader skips None points (see _preprocess_pose). A pose that uses the legs can add them back.
     cactus = {
     "name": "Cactus",
     "keypoints": {
@@ -10,18 +15,18 @@ class PoseGrader:
         "right_eye": None,
         "left_ear": None,
         "right_ear": None,
-        "left_shoulder": (-0.5,1),
-        "right_shoulder": (0.5,1),
-        "left_elbow": (-1.5,1),
-        "right_elbow": (1.5,1),
-        "left_wrist": (-1.5,0),
-        "right_wrist": (1.5,2),
-        "left_hip": (-0.5,2),
-        "right_hip": (0.5,2),
-        "left_knee": (-0.5,2.75),
-        "right_knee": (0.5,2.75),
-        "left_ankle": (-0.5,3.5),
-        "right_ankle": (0.5,3.5),
+        "left_shoulder": (-0.5,0.5),
+        "right_shoulder": (0.5,0.5),
+        "left_elbow": (-1.2,0.7),
+        "right_elbow": (1.2,0.7),
+        "left_wrist": (-1.25,-0.1),
+        "right_wrist": (1.25,1.35),
+        "left_hip": (-0.35,2),
+        "right_hip": (0.35,2),
+        "left_knee": None,
+        "right_knee": None,
+        "left_ankle": None,
+        "right_ankle": None,
         }
     }
 
@@ -33,24 +38,48 @@ class PoseGrader:
             "right_eye": None,
             "left_ear": None,
             "right_ear": None,
-            "left_shoulder": (-0.5,1),
-            "right_shoulder": (0.5,1),
-            "left_elbow": (-1.5,1),
-            "right_elbow": (1.5,1),
-            "left_wrist": (-2.5,1),
-            "right_wrist": (2.5,1),
-            "left_hip": (-0.5,2),
-            "right_hip": (0.5,2),
-            "left_knee": (-0.5,2.75),
-            "right_knee": (0.5,2.75),
-            "left_ankle": (-0.5,3.5),
-            "right_ankle": (0.5,3.5)
+            "left_shoulder": (-0.5,0.5),
+            "right_shoulder": (0.5,0.5),
+            "left_elbow": (-1.4,0.6),
+            "right_elbow": (1.4,0.6),
+            "left_wrist": (-2.2,0.55),
+            "right_wrist": (2.2,0.55),
+            "left_hip": (-0.35,2),
+            "right_hip": (0.35,2),
+            "left_knee": None,
+            "right_knee": None,
+            "left_ankle": None,
+            "right_ankle": None
+            }
+    }
+
+    pencil = {
+        "name": "Pencil",
+        "keypoints": {
+            "nose": (0,0),
+            "left_eye": None,
+            "right_eye": None,
+            "left_ear": None,
+            "right_ear": None,
+            "left_shoulder": (-0.5,0.55),
+            "right_shoulder": (0.5,0.55),
+            "left_elbow": (-0.7,1.35),
+            "right_elbow": (0.7,1.35),
+            "left_wrist": (-0.95,2.1),
+            "right_wrist": (0.95,2.1),
+            "left_hip": (-0.35,2),
+            "right_hip": (0.35,2),
+            "left_knee": None,
+            "right_knee": None,
+            "left_ankle": None,
+            "right_ankle": None
             }
     }
 
     poses = {
         "cactus": cactus,
         "t_pose": t_pose,
+        "pencil": pencil,
     }
 
         

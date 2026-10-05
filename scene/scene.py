@@ -1,6 +1,6 @@
 import cv2
 
-from scene.functions import mix_colors, put_text_center, put_text_left, put_text_right, scale_for_height
+from scene.functions import RATING_COLORS, draw_text, mix_colors, put_text_center, put_text_left, put_text_right, scale_for_height
 
 class Scene:
     def __init__(self, color_key="player_color"):
@@ -28,6 +28,14 @@ class Scene:
             output = self._add_current_pose(output, self.pose_top, self.pose_bottom, current_pose)
 
         return output
+
+    def draw_ratings(self, frame, ratings):
+        """"Perfect", "Good", ... under the score of each player. ratings: {player_id: "Perfect"}"""
+        width = frame.shape[1]
+        for player_id, rating in ratings.items():
+            x = width // 2 + (-1 if player_id == 1 else 1) * width // 8
+            draw_text(frame, rating, (x, self.score_bottom + 35), 1.0, RATING_COLORS[rating])
+        return frame
 
     def draw_player(self, frame, players):
         """Draws the keypoints and a head circle in the player color, for debugging. players: dict from IdentityTracker.update()."""

@@ -1,6 +1,7 @@
 from ultralytics import YOLO
 import numpy as np
 import cv2
+import config
 
 
 class PoseEstimator:
@@ -51,7 +52,7 @@ class PoseEstimator:
         self.MOTIONS_SMOOTHING = MOTIONS_SMOOTHING  # Smoothing factor for motion estimation
 
         #lightweight pose estimation model
-        self.model = YOLO("yolo26n-pose.pt")
+        self.model = YOLO(str(config.YOLO_MODEL_PATH))
     
     def _empty_keypoints(self):
         return np.empty(
