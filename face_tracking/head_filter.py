@@ -41,8 +41,11 @@ def enlarge_heads(output, faces, enlargement=1.0):
             np.arange(y1, y2, dtype=np.float32),
         )
 
-        map_x = center_x + (x_coordinates - center_x) / enlargement
-        map_y = center_y + (y_coordinates - center_y) / enlargement
+        # cv2.remap requires CV_32FC1/CV_32FC2 coordinate maps. Explicitly
+        # retain float32 because NumPy can promote these calculations to
+        # float64 when ``enlargement`` is a Python float.
+        map_x = (center_x + (x_coordinates - center_x) / enlargement).astype(np.float32)
+        map_y = (center_y + (y_coordinates - center_y) / enlargement).astype(np.float32)
         enlarged = cv2.remap(
             source, map_x, map_y, cv2.INTER_LINEAR, borderMode=cv2.BORDER_REFLECT_101
         )

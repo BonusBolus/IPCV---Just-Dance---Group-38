@@ -1,47 +1,32 @@
-import os
-import sys
-from contextlib import contextmanager
 from pathlib import Path
 
 import cv2
-import mediapipe as mp
 import numpy as np
 
-MODEL_PATH = Path(__file__).parent / "face_landmarker.task"
+MODEL_PATH = Path(__file__).parent / "face_detection_yunet_2023mar.onnx"
 
-BaseOptions = mp.tasks.BaseOptions
-FaceLandmarker = mp.tasks.vision.FaceLandmarker
-FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
-VisionRunningMode = mp.tasks.vision.RunningMode
+if not hasattr(cv2, "FaceDetectorYN"):
+    raise RuntimeError(
+        "YuNet requires OpenCV 4.5.4 or newer with cv2.FaceDetectorYN support."
+    )
 
-options = FaceLandmarkerOptions(
-    base_options=BaseOptions(
-        model_asset_path=str(MODEL_PATH)
-    ),
-    running_mode=VisionRunningMode.IMAGE,
-    num_faces=10
+if not MODEL_PATH.is_file():
+    raise FileNotFoundError(
+        f"YuNet model not found: {MODEL_PATH}. Download "
+        "face_detection_yunet_2023mar.onnx from OpenCV Zoo and place it here."
+    )
+
+# YuNet returns a face box, five facial keypoints, and a confidence score.
+# The input size is updated to the camera frame before every detection, which
+# preserves the available detail in small, distant faces.
+landmarker = cv2.FaceDetectorYN.create(
+    str(MODEL_PATH),
+    "",
+    (320, 320),
+    score_threshold=0.6,
+    nms_threshold=0.3,
+    top_k=5000,
 )
-
-
-
-@contextmanager
-def _silence_stderr():
-    """MediaPipe's C++ code prints WARNING/INFO lines straight to stderr, so redirect it at file descriptor level."""
-    sys.stderr.flush()
-    saved = os.dup(2)
-    devnull = os.open(os.devnull, os.O_WRONLY)
-    os.dup2(devnull, 2)
-    try:
-        yield
-    finally:
-        sys.stderr.flush()
-        os.dup2(saved, 2)
-        os.close(devnull)
-        os.close(saved)
-
-
-with _silence_stderr():
-    landmarker = FaceLandmarker.create_from_options(options)
 
 _previous_faces = []
 _missed_frames = []
@@ -58,57 +43,24 @@ def get_face_properties(frame, write_results=False):
 
     height, width, _ = frame.shape
 
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-
-    result = landmarker.detect(mp_image)
     faces = []
+    landmarker.setInputSize((width, height))
+    _, detections = landmarker.detect(frame)
 
-    for landmarks in result.face_landmarks:
+    if detections is None:
+        return faces
 
-        xs = [lm.x for lm in landmarks]
-        ys = [lm.y for lm in landmarks]
-
-        min_x = min(xs)
-        max_x = max(xs)
-        min_y = min(ys)
-        max_y = max(ys)
-
-        x1 = int(min_x * width)
-        y1 = int(min_y * height)
-        x2 = int(max_x * width)
-        y2 = int(max_y * height)
-
-        face_width = x2 - x1
-        face_height = y2 - y1
-
+    for detection in detections:
+        x1, y1, face_width, face_height = detection[:4].astype(int)
+        x2 = x1 + face_width
+        y2 = y1 + face_height
         center_x = (x1 + x2) // 2
         center_y = (y1 + y2) // 2
 
-        left_eye = landmarks[33]
-        right_eye = landmarks[263]
-        nose = landmarks[1]
-        chin = landmarks[152]
-
-        left_eye = np.array([
-            left_eye.x * width,
-            left_eye.y * height
-        ])
-
-        right_eye = np.array([
-            right_eye.x * width,
-            right_eye.y * height
-        ])
-
-        nose = np.array([
-            nose.x * width,
-            nose.y * height
-        ])
-
-        chin = np.array([
-            chin.x * width,
-            chin.y * height
-        ])
+        # YuNet keypoints: right eye, left eye, nose, right mouth, left mouth.
+        right_eye, left_eye, nose, right_mouth, left_mouth = (
+            detection[4:14].reshape(5, 2)
+        )
 
         # Roll
         dx = right_eye[0] - left_eye[0]
@@ -123,19 +75,20 @@ def get_face_properties(frame, write_results=False):
             right_eye - left_eye
         )
 
-        yaw = (
+        yaw = 0.0 if eye_distance == 0 else (
             (nose[0] - eye_center[0])
             / eye_distance
         ) * 90
 
-        # Pitch
+        # Approximate pitch from the nose position between eye and mouth lines.
+        mouth_center = (left_mouth + right_mouth) / 2
         face_height_pixels = np.linalg.norm(
-            chin - eye_center
+            mouth_center - eye_center
         )
 
         nose_vertical = nose[1] - eye_center[1]
 
-        pitch = (
+        pitch = 0.0 if face_height_pixels == 0 else (
             (nose_vertical / face_height_pixels) - 0.5
         ) * 90
 
