@@ -23,7 +23,6 @@ def draw_registration(frame, players, ready, progress, colors_similar):
         else:
             draw_bar(frame, (center_x - 70, label_y + 20), (140, 14), progress[player_id], color)
 
-    draw_text(frame, "Raise both hands when you are ready", (width // 2, 35))
     if colors_similar:
         draw_banner(frame, "Please wear different colours", (0, 0, 160))
     return frame

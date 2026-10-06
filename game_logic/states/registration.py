@@ -29,4 +29,5 @@ class RegistrationState(State):
 
     def draw(self, game, image):
         progress = {i: self.gestures[i].progress for i in PLAYER_IDS}
-        return draw_registration(image, game.players, self.ready, progress, game.tracker.colors_are_similar())
+        image = draw_registration(image, game.players, self.ready, progress, game.tracker.colors_are_similar())
+        return game.scene.draw_title(image, list(game.players.values()), "Raise both hands when you are ready")

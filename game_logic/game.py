@@ -72,6 +72,7 @@ class Game:
         image = frame.image.copy()
         faces = smooth_face_properties(get_face_properties(image))
         enlarge_heads(image, faces, config.HEAD_ENLARGEMENT)
+        self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
         if self.debug:
             draw_labels(image, self.players)
             draw_face_outline(image, faces)

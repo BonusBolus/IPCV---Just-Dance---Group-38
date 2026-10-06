@@ -1,12 +1,17 @@
-import cv2
+import math
 
-from scene.functions import RATING_COLORS, draw_text, mix_colors, put_text_center, put_text_left, put_text_right, scale_for_height
+import cv2
+import numpy as np
+
+from scene.functions import RATING_COLORS, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
 
 class Scene:
     def __init__(self, color_key="player_color"):
         self.color_key = color_key
         self.title_top = 0
-        self.title_bottom = 50
+        self.title_height = 60
+        self.title_bottom = 20 + self.title_height + 10
+        self.glow = None    # edge glow fade, made on first use (see draw_edge_effects)
         self.score_top = self.title_bottom + 20
         self.score_bottom = self.score_top + 16
         self.pose_top = self.score_bottom + 20
@@ -21,13 +26,72 @@ class Scene:
             colors.append(player[self.color_key])
             scores.append(player["score"])
 
-        output = self._add_title(output, self.title_bottom, colors)
+        output = self.draw_title(output, players, text_height=self.title_height)
         output = self._add_score(output, scores, self.score_top, self.score_bottom, colors)
 
         if current_pose is not None:
             output = self._add_current_pose(output, self.pose_top, self.pose_bottom, current_pose)
 
         return output
+
+    def draw_title(self, frame, players, prompt=None, text_height=60):
+        """"Just Dance" at the top in the middle: "Just" in the colour of player 1, "Dance" in that of player 2.
+        players: list of player dicts, like render()
+        prompt:  optional smaller line under the title, e.g. "Raise both hands when you are ready" """
+        width = frame.shape[1]
+        font, thickness = cv2.FONT_HERSHEY_TRIPLEX, 3
+        font_size = scale_for_height(text_height, font, thickness)
+        words = ["Just ", "Dance"]
+        widths = [cv2.getTextSize(word, font, font_size, thickness)[0][0] for word in words]
+        x = (width - sum(widths)) // 2
+        y = 20 + text_height
+        for word, word_width, player in zip(words, widths, players):
+            color = tuple(int(c) for c in player[self.color_key][::-1])     # RGB -> BGR
+            cv2.putText(frame, word, (x, y), font, font_size, (0, 0, 0), thickness + 4, cv2.LINE_AA)  # outline
+            cv2.putText(frame, word, (x, y), font, font_size, color, thickness, cv2.LINE_AA)
+            x += word_width
+        if prompt:
+            draw_text(frame, prompt, (width // 2, y + 35), 0.8)
+        return frame
+
+    def draw_edge_effects(self, frame, players, t, edge=0.12, sparkles=14):
+        """A soft glow along the left and right edge (player 1 colour left, player 2 colour right)
+        that slowly pulses, with small sparkles rising along the edges. Changes `frame` in place.
+
+        players: list of player dicts, like render()
+        t:       time in seconds, drives the animation
+        edge:    width of the glow, as a fraction of the screen width
+        """
+        height, width = frame.shape[:2]
+        strip = max(1, int(width * edge))
+        colors = [tuple(int(c) for c in player[self.color_key][::-1]) for player in players[:2]]  # RGB -> BGR
+
+        # glow: mix the player colour into the image, strong at the edge and fading to the inside
+        if self.glow is None or self.glow.shape != (height, strip):
+            fade = np.linspace(1, 0, strip, dtype=np.float32) ** 2
+            self.glow = np.ascontiguousarray(np.tile(fade, (height, 1)))               # (height, strip)
+        pulse = 0.55 + 0.2 * math.sin(2 * math.pi * 0.5 * t)     # 0.35..0.75, one pulse every 2 seconds
+        alpha = self.glow * pulse
+        for side, weight, color in ((frame[:, :strip], alpha, colors[0]),
+                                    (frame[:, width - strip:], np.ascontiguousarray(alpha[:, ::-1]), colors[1])):
+            color_layer = np.full((height, strip, 3), color, np.uint8)
+            side[:] = cv2.blendLinear(color_layer, np.ascontiguousarray(side), weight, 1 - weight)
+
+        # sparkles: rise from the bottom and twinkle; the position follows from the time, so no state is needed
+        for i in range(sparkles * 2):
+            on_left = i % 2 == 0
+            seed = (i * 0.618034) % 1.0                     # spreads the sparkles evenly
+            speed = 0.08 + 0.07 * ((i * 0.381966) % 1.0)    # screen heights per second
+            y = int((1.0 - (seed + t * speed) % 1.0) * height)
+            offset = int(strip * (0.15 + 0.6 * ((i * 0.7548) % 1.0)))
+            x = offset if on_left else width - 1 - offset
+            twinkle = 0.5 + 0.5 * math.sin(2 * math.pi * (1.5 * t + seed))
+            size = 2 + int(4 * twinkle)
+            base = colors[0] if on_left else colors[1]
+            color = tuple(int(c + (255 - c) * twinkle) for c in base)   # from the player colour to white
+            cv2.line(frame, (x - size, y), (x + size, y), color, 1, cv2.LINE_AA)
+            cv2.line(frame, (x, y - size), (x, y + size), color, 1, cv2.LINE_AA)
+        return frame
 
     def draw_ratings(self, frame, ratings):
         """"Perfect", "Good", ... under the score of each player. ratings: {player_id: "Perfect"}"""
@@ -60,16 +124,6 @@ class Scene:
             #     keypoints["right_eye"][1],
             # )
             # cv2.circle(frame, head_center, head_width // 2, color, -1)
-        return frame
-
-    def _add_title(self, frame, title_height, colors):
-        width = frame.shape[1]
-        font_size = scale_for_height(title_height, cv2.FONT_HERSHEY_TRIPLEX, 2)
-        colors_mixed = mix_colors(colors[0], colors[1], 0.5)
-        put_text_center(
-            frame, "Just Dance", (width // 2, title_height // 2),
-            cv2.FONT_HERSHEY_TRIPLEX, font_size, colors_mixed[::-1], 2,
-        )
         return frame
 
     def _add_score(self, frame, score, score_top, score_bottom, colors):
