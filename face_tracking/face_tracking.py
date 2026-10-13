@@ -1,186 +1,90 @@
-import os
-import sys
-from contextlib import contextmanager
+"""Face detection and lightweight temporal smoothing for the head effect."""
 from pathlib import Path
 
 import cv2
-import mediapipe as mp
 import numpy as np
 
-MODEL_PATH = Path(__file__).parent / "face_landmarker.task"
 
-BaseOptions = mp.tasks.BaseOptions
-FaceLandmarker = mp.tasks.vision.FaceLandmarker
-FaceLandmarkerOptions = mp.tasks.vision.FaceLandmarkerOptions
-VisionRunningMode = mp.tasks.vision.RunningMode
+# YuNet detects faces.
+MODEL_PATH = Path(__file__).parent / "face_detection_yunet_2023mar.onnx"
+SCORE_THRESHOLD = 0.6
 
-options = FaceLandmarkerOptions(
-    base_options=BaseOptions(
-        model_asset_path=str(MODEL_PATH)
-    ),
-    running_mode=VisionRunningMode.IMAGE,
-    num_faces=10
+if not hasattr(cv2, "FaceDetectorYN"):
+    raise RuntimeError("YuNet requires OpenCV 4.5.4 or newer.")
+if not MODEL_PATH.is_file():
+    raise FileNotFoundError(f"YuNet model not found: {MODEL_PATH}")
+
+# The initial size is required by OpenCV; it is replaced with each frame's
+# native dimensions in get_face_properties so distant faces are not downscaled.
+face_detector = cv2.FaceDetectorYN.create(
+    str(MODEL_PATH),
+    "",
+    (320, 320),
+    score_threshold=SCORE_THRESHOLD,
+    nms_threshold=0.3,
+    top_k=5000,
 )
-
-
-
-@contextmanager
-def _silence_stderr():
-    """MediaPipe's C++ code prints WARNING/INFO lines straight to stderr, so redirect it at file descriptor level."""
-    sys.stderr.flush()
-    saved = os.dup(2)
-    devnull = os.open(os.devnull, os.O_WRONLY)
-    os.dup2(devnull, 2)
-    try:
-        yield
-    finally:
-        sys.stderr.flush()
-        os.dup2(saved, 2)
-        os.close(devnull)
-        os.close(saved)
-
-
-with _silence_stderr():
-    landmarker = FaceLandmarker.create_from_options(options)
 
 _previous_faces = []
 _missed_frames = []
 
 
+def _orientation_from_keypoints(keypoints):
+    """Estimate roll from YuNet's five facial keypoints."""
+    right_eye, left_eye, *_ = keypoints
+    eye_vector = right_eye - left_eye
+    # Roll is measured from the eye line.
+    roll = np.degrees(np.arctan2(eye_vector[1], eye_vector[0])) + 180
+    if roll < 180:
+        roll += 360
+
+    return {
+        "roll": float(roll),
+    }
+
+
 def get_face_properties(frame, write_results=False):
+    """Detect faces and return their location, size, and estimated orientation.
     """
-    Detect all faces in a frame and return their:
+    height, width = frame.shape[:2]
+    face_detector.setInputSize((width, height))
+    _, detections = face_detector.detect(frame)
 
-    - location: (center_x, center_y)
-    - size: (width, height)
-    - orientation: yaw, pitch, roll
-    """
-
-    height, width, _ = frame.shape
-
-    rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=rgb)
-
-    result = landmarker.detect(mp_image)
     faces = []
+    if detections is None:
+        return faces
 
-    for landmarks in result.face_landmarks:
+    for detection in detections:
+        x, y, face_width, face_height = np.rint(detection[:4]).astype(int)
+        if face_width <= 0 or face_height <= 0:
+            continue
 
-        xs = [lm.x for lm in landmarks]
-        ys = [lm.y for lm in landmarks]
-
-        min_x = min(xs)
-        max_x = max(xs)
-        min_y = min(ys)
-        max_y = max(ys)
-
-        x1 = int(min_x * width)
-        y1 = int(min_y * height)
-        x2 = int(max_x * width)
-        y2 = int(max_y * height)
-
-        face_width = x2 - x1
-        face_height = y2 - y1
-
-        center_x = (x1 + x2) // 2
-        center_y = (y1 + y2) // 2
-
-        left_eye = landmarks[33]
-        right_eye = landmarks[263]
-        nose = landmarks[1]
-        chin = landmarks[152]
-
-        left_eye = np.array([
-            left_eye.x * width,
-            left_eye.y * height
-        ])
-
-        right_eye = np.array([
-            right_eye.x * width,
-            right_eye.y * height
-        ])
-
-        nose = np.array([
-            nose.x * width,
-            nose.y * height
-        ])
-
-        chin = np.array([
-            chin.x * width,
-            chin.y * height
-        ])
-
-        # Roll
-        dx = right_eye[0] - left_eye[0]
-        dy = right_eye[1] - left_eye[1]
-
-        roll = np.degrees(np.arctan2(dy, dx))
-
-        # Yaw
-        eye_center = (left_eye + right_eye) / 2
-
-        eye_distance = np.linalg.norm(
-            right_eye - left_eye
-        )
-
-        yaw = (
-            (nose[0] - eye_center[0])
-            / eye_distance
-        ) * 90
-
-        # Pitch
-        face_height_pixels = np.linalg.norm(
-            chin - eye_center
-        )
-
-        nose_vertical = nose[1] - eye_center[1]
-
-        pitch = (
-            (nose_vertical / face_height_pixels) - 0.5
-        ) * 90
-
+        # YuNet outputs: box, then right eye, left eye, nose, right mouth,
+        # left mouth, followed by the confidence score.
+        keypoints = detection[4:14].reshape(5, 2)
         faces.append({
-            "location": (center_x, center_y),
-
-            "size": (
-                face_width,
-                face_height
-            ),
-
-            "orientation": {
-                "yaw": float(yaw),
-                "pitch": float(pitch),
-                "roll": float(roll)
-            }
+            "location": (x + face_width // 2, y + face_height // 2),
+            "size": (face_width, face_height),
+            "orientation": _orientation_from_keypoints(keypoints),
         })
 
-        if write_results:
-            for i, face in enumerate(faces):
-            
-                    location = face["location"]
-                    size = face["size"]
-                    orientation = face["orientation"]
-            
-                    print(
-                        f"Face {i}: "
-                        f"Location={location}, "
-                        f"Size={size}, "
-                        f"Orientation={orientation}"
-                    )
+    if write_results:
+        for index, face in enumerate(faces):
+            print(
+                f"Face {index}: Location={face['location']}, "
+                f"Size={face['size']}, Orientation={face['orientation']}"
+            )
 
     return faces
 
 
-def smooth_face_properties(faces, alpha=0.6, max_missed_frames=5):
-    """Reduce frame-to-frame jitter in detected face properties.
+def smooth_face_properties(faces, alpha=0.5, max_missed_frames=5):
+    """Smooth face properties and retain brief detector misses.
 
-    Each face is matched to the closest face from the preceding frame. Matched
-    values are filtered with an exponential moving average: smaller ``alpha``
-    values look steadier but respond more slowly to movement. When detection
-    briefly fails, the last known properties remain available for up to
-    ``max_missed_frames`` frames (without fading) before that face is removed.
+    A detected face is paired with the nearest unmatched face from the previous
+    frame. ``alpha`` controls the balance between the new and previous value.
     """
-    global _previous_faces, _missed_frames
+    global _previous_faces, _missed_frames # Global variables preserving information between calls.
 
     smoothed_faces = []
     next_missed_frames = []
@@ -189,19 +93,21 @@ def smooth_face_properties(faces, alpha=0.6, max_missed_frames=5):
     for face in faces:
         x, y = face["location"]
         face_width, face_height = face["size"]
-
-        # Find the nearest previous face. Limit the match distance so a face
-        # that newly appears is not blended with a distant, different player.
         match_index = None
+
+        # Calculating Euclidian distances between current and old face locations.
         if unmatched_previous:
             distances = {
-                index: np.hypot(x - _previous_faces[index]["location"][0],
-                                y - _previous_faces[index]["location"][1])
+                index: np.hypot(
+                    x - _previous_faces[index]["location"][0],
+                    y - _previous_faces[index]["location"][1],
+                )
                 for index in unmatched_previous
             }
-            candidate = min(distances, key=distances.get)
-            max_distance = max(face_width, face_height) * 1.5
-            if distances[candidate] <= max_distance:
+            candidate = min(distances, key=distances.get) # Selecting smallest distance face.
+
+            # Avoid blending a newly arrived player with another player.
+            if distances[candidate] <= max(face_width, face_height) * 1.5:
                 match_index = candidate
                 unmatched_previous.remove(candidate)
 
@@ -213,33 +119,29 @@ def smooth_face_properties(faces, alpha=0.6, max_missed_frames=5):
             }
         else:
             previous = _previous_faces[match_index]
-            previous_x, previous_y = previous["location"]
-            previous_width, previous_height = previous["size"]
 
             def blend(current, old):
                 return alpha * current + (1.0 - alpha) * old
 
             smoothed_face = {
-                "location": (
-                    int(round(blend(x, previous_x))),
-                    int(round(blend(y, previous_y))),
+                "location": tuple(
+                    int(round(blend(current, old)))
+                    for current, old in zip(face["location"], previous["location"])
                 ),
-                "size": (
-                    int(round(blend(face_width, previous_width))),
-                    int(round(blend(face_height, previous_height))),
+                "size": tuple(
+                    int(round(blend(current, old)))
+                    for current, old in zip(face["size"], previous["size"])
                 ),
                 "orientation": {
                     axis: blend(face["orientation"][axis], previous["orientation"][axis])
-                    for axis in ("yaw", "pitch", "roll")
+                    for axis in ("roll",)
                 },
             }
 
         smoothed_faces.append(smoothed_face)
         next_missed_frames.append(0)
 
-    # A detector can miss a face for a few frames because of motion blur or an
-    # occlusion. Keep its last filtered properties during this grace period so
-    # the outline does not disappear and immediately reappear.
+    # Keep a last-known face briefly through blur or a one-frame detection miss.
     for index in unmatched_previous:
         missed_frames = _missed_frames[index] + 1
         if missed_frames <= max_missed_frames:

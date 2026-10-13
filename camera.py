@@ -1,5 +1,6 @@
 """Webcam input for the game."""
 import sys
+import threading
 import time
 from dataclasses import dataclass
 import cv2
@@ -17,6 +18,11 @@ class Camera:
     """Reads frames from a webcam (or a video file for testing).
 
     The image is mirrored, so the players see themselves like in a mirror.
+
+    A webcam is read in a background thread that keeps only the newest image. Without it, the
+    images wait in the webcam's buffer when the game is slower than the camera, and the game
+    shows an image of about 160 ms ago (the players see themselves late). A video file is read
+    normally, so no frame is skipped.
     """
 
     def __init__(self, source=0, width=1280, height=720, mirror=True):
@@ -29,17 +35,48 @@ class Camera:
         self.mirror = mirror
         self.index = 0
 
+        self.live = isinstance(source, int)
+        if self.live:
+            self.latest = None              # (ok, image, capture time) of the newest image
+            self.new_image = threading.Condition()
+            self.running = True
+            self.thread = threading.Thread(target=self._read_newest, daemon=True)
+            self.thread.start()
+
+    def _read_newest(self):
+        """Background thread: read the webcam all the time, keep only the newest image."""
+        while self.running:
+            ok, image = self.cap.read()
+            with self.new_image:
+                self.latest = (ok, image, time.perf_counter())
+                self.new_image.notify()
+            if not ok:
+                break
+
     def read(self):
-        ok, image = self.cap.read()
+        if self.live:
+            with self.new_image:
+                while self.latest is None:      # wait for an image that the game did not get yet
+                    if not self.thread.is_alive():
+                        return None             # the webcam stopped
+                    self.new_image.wait(timeout=0.5)
+                ok, image, capture_time = self.latest
+                self.latest = None
+        else:
+            ok, image = self.cap.read()
+            capture_time = time.perf_counter()
         if not ok:
             return None
         if self.mirror:
             image = cv2.flip(image, 1)
-        frame = Frame(image, time.perf_counter(), self.index)
+        frame = Frame(image, capture_time, self.index)
         self.index += 1
         return frame
 
     def release(self):
+        if self.live:
+            self.running = False
+            self.thread.join(timeout=1.0)
         self.cap.release()
 
 
