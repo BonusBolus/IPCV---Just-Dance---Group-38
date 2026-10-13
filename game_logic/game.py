@@ -11,9 +11,9 @@ import cv2
 
 import config
 from camera import FPSCounter
-from face_tracking.face_overlay import draw_face_outline
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
 from face_tracking.head_filter import enlarge_heads
+from face_tracking.game_effects import add_crown, add_player_name
 from game_logic.pose_grading import PoseGrader
 from game_logic.song import Song
 from game_logic.states.countdown import CountdownState
@@ -84,9 +84,10 @@ class Game:
         image = frame.image.copy()
         faces = faces_future.result()                  # wait for the face thread (usually done already)
         enlarge_heads(image, faces, config.HEAD_ENLARGEMENT)
+        add_crown(image, faces)
+        add_player_name(image, "Player NAME", faces)
         if self.debug:
             draw_labels(image, self.players)
-            draw_face_outline(image, faces)
 
         image = self.state.draw(self, image)
         if self.debug:
