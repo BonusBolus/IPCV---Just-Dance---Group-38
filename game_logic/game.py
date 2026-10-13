@@ -86,6 +86,7 @@ class Game:
         enlarge_heads(image, faces, config.HEAD_ENLARGEMENT)
         add_crown(image, faces)
         add_player_name(image, "Player NAME", faces)
+        self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
         if self.debug:
             draw_labels(image, self.players)
 
