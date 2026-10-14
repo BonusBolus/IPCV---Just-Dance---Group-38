@@ -2,6 +2,7 @@
 import config
 from game_logic.states.common import HoldGesture, State, anyone_hands_up
 from scene.results_screen import draw_results
+from scene.functions import draw_duet_bonus
 
 
 class ResultsState(State):
@@ -9,6 +10,7 @@ class ResultsState(State):
         game.song.stop()
         self.start = game.now
         self.gesture = HoldGesture(config.HOLD_TIME)
+        self.duet_bonus_since = game.states["playing"].duet_bonus_since
 
     def update(self, game):
         waited = game.now - self.start
@@ -27,4 +29,9 @@ class ResultsState(State):
             winner = None                                # a draw
         else:
             winner = player_1 if player_1["score"] > player_2["score"] else player_2
-        return draw_results(image, game.players, winner, self.gesture.progress, show_hint)
+        image = draw_results(image, game.players, winner, self.gesture.progress, show_hint)
+        if self.duet_bonus_since is not None:
+            elapsed = game.now - self.duet_bonus_since
+            if 0 <= elapsed < config.DUET_BONUS_TIME:
+                image = draw_duet_bonus(image, elapsed / config.DUET_BONUS_TIME, center_y=45)
+        return image

@@ -38,6 +38,7 @@ WHITE = (255, 255, 255)
 GREY = (170, 170, 170)
 GREEN = (80, 220, 80)
 GOLD = (0, 215, 255)
+DUET = (255, 220, 80)
 RATING_COLORS = {"Perfect": GOLD, "Good": GREEN, "OK": (255, 200, 80), "Miss": (60, 60, 230)}
 
 
@@ -57,6 +58,23 @@ def draw_big_text(frame, text):
     """Countdown numbers and "Dance!" in the middle of the screen."""
     height, width = frame.shape[:2]
     return draw_text(frame, text, (width // 2, height // 2), 4.0, WHITE, 8)
+
+
+def draw_duet_bonus(frame, progress, center_y=None):
+    """A gold popup below the ratings, rising slightly and fading before it expires."""
+    height, width = frame.shape[:2]
+    center = (width // 2, (min(175, height // 3) if center_y is None else center_y) - int(12 * progress))
+    size = min(1.2, width / 420)
+    text = "DUET BONUS"
+    (text_w, text_h), baseline = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, size, 2)
+    overlay = frame.copy()
+    x, y = center
+    cv2.rectangle(overlay, (x - text_w // 2 - 18, y - text_h // 2 - 12),
+                  (x + text_w // 2 + 18, y + text_h // 2 + baseline + 12), (20, 20, 20), -1)
+    draw_text(overlay, text, center, size, GOLD)
+    opacity = min(1.0, max(0.0, (1.0 - progress) / 0.25))
+    cv2.addWeighted(overlay, opacity, frame, 1.0 - opacity, 0, dst=frame)
+    return frame
 
 
 def draw_bar(frame, top_left, size, fraction, color):

@@ -2,6 +2,7 @@ import json
 from pathlib import Path
 
 import numpy as np
+import config
 
 
 class PoseGrader:
@@ -36,7 +37,11 @@ class PoseGrader:
         self.processed_poses = {
             name: {
                 "name": pose["name"],
-                "angles": self._get_reference_angles(pose["keypoints"]),
+                "angles": [
+                    self._get_reference_angles(pose[key])
+                    for key in ("keypoints", "keypoints_2")
+                    if key in pose
+                ],
             }
             for name, pose in self.poses.items()
         }
@@ -217,7 +222,7 @@ class PoseGrader:
 
         return angles
 
-    def grade_pose(self, player_keypoints, reference_pose):
+    def grade_pose(self, player_keypoints, reference_pose, player = 0):
 
         player_angles = self._get_player_angles(
             player_keypoints
@@ -225,7 +230,7 @@ class PoseGrader:
 
         reference_angles = self.processed_poses[
             reference_pose
-        ]["angles"]
+        ]["angles"][player]
 
         errors = []
 
@@ -241,7 +246,27 @@ class PoseGrader:
         mean_error = np.mean(errors)
 
         score = 100.0 * np.exp(
-            -mean_error / 30.0
+            -(mean_error / 30.0)**config.SCORE_MULTIPLIER
         )
-
         return score
+    
+    def interaction_met(self, players, reference_pose):
+        """players: two keypoint arrays, ordered left to right in the image."""
+        interaction = self.poses[reference_pose]["interaction"]
+
+        # Distances are in shoulder widths, so they don't depend on camera distance
+        width = np.mean([
+            np.linalg.norm(
+                p[self.KEYPOINTS["right_shoulder"], :2]
+                - p[self.KEYPOINTS["left_shoulder"], :2]
+            )
+            for p in players
+        ])
+
+        for c in interaction:
+            a = players[0][self.KEYPOINTS[c["a"]], :2]
+            b = players[1][self.KEYPOINTS[c["b"]], :2]
+            if np.linalg.norm(a - b) / width > c["max_dist"]:
+                return False
+
+        return True

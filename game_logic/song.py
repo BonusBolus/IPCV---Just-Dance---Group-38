@@ -11,6 +11,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from dataclasses import dataclass, field
 
 import config
 
@@ -25,10 +26,13 @@ except ImportError:
 class Move:
     name: str      # shown on screen, for example "Cactus"
     key: str       # name in poses.json, for example "cactus" (also used by the PoseGrader)
-    pose: dict     # from poses.json: {"nose": (x, y), ...}, nose at (0, 0), None = not used
+    pose: dict     # from poses.json: {"nose": (x, y), ...}, nose at (0, 0), None = not used, when duet move this holds only keypoints player 1
     start: float   # seconds: the move becomes active, the player must be in the pose
     end: float     # seconds: the move is over
     gold: bool     # gold move: double points
+    players: int = 1 #1 is single move, 2 is duet
+    pose2: dict | None = None #if duet store keypoints for p2
+    interaction: list = field(default_factory=list)  # list of dicts: {"pose": "pose_name", "keypoints": {...}, "players": 1, "interaction": [...]}
 
 
 def moves_from_beats(data, poses, file_name):
@@ -40,9 +44,19 @@ def moves_from_beats(data, poses, file_name):
         if item["pose"] not in poses:
             raise ValueError(f'{file_name} move {i}: pose "{item["pose"]}" not found in poses.json')
         pose = poses[item["pose"]]
+        
+        # if two players move get both keypoints
+        players = pose.get("players", 1)
+        if players == 2 and ("keypoints_2" not in pose or not pose.get("interaction")):
+            raise ValueError(f'{file_name} move {i}: duet pose "{item["pose"]}" needs keypoints_2 and interaction')
+        
         start = offset + item["beat"] * beat_time
         end = start + item.get("beats", config.DEFAULT_MOVE_BEATS) * beat_time
-        moves.append(Move(pose["name"], item["pose"], pose["keypoints"], start, end, item.get("gold", False)))
+        moves.append(Move(pose["name"], item["pose"], pose["keypoints"], start, end,
+                          item.get("gold", False),
+                          players=players,
+                          pose2=pose.get("keypoints_2"),
+                          interaction=pose.get("interaction", [])))
     return moves
 
 
