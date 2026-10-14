@@ -1,6 +1,4 @@
-"""Face detection and lightweight temporal smoothing for the head effect."""
 from pathlib import Path
-
 import cv2
 import numpy as np
 
@@ -17,9 +15,7 @@ if not MODEL_PATH.is_file():
 # The initial size is required by OpenCV; it is replaced with each frame's
 # native dimensions in get_face_properties so distant faces are not downscaled.
 face_detector = cv2.FaceDetectorYN.create(
-    str(MODEL_PATH),
-    "",
-    (320, 320),
+    str(MODEL_PATH), "", (320, 320),
     score_threshold=SCORE_THRESHOLD,
     nms_threshold=0.3,
     top_k=5000,
@@ -37,15 +33,13 @@ def _orientation_from_keypoints(keypoints):
     roll = np.degrees(np.arctan2(eye_vector[1], eye_vector[0])) + 180
     if roll < 180:
         roll += 360
-
     return {
         "roll": float(roll),
     }
 
 
 def get_face_properties(frame, write_results=False):
-    """Detect faces and return their location, size, and estimated orientation.
-    """
+    """Detect faces and return their location, size, and estimated orientation."""
     height, width = frame.shape[:2]
     face_detector.setInputSize((width, height))
     _, detections = face_detector.detect(frame)
@@ -82,8 +76,7 @@ def smooth_face_properties(faces, alpha=0.5, max_missed_frames=5):
     """Smooth face properties and retain brief detector misses.
 
     A detected face is paired with the nearest unmatched face from the previous
-    frame. ``alpha`` controls the balance between the new and previous value.
-    """
+    frame. ``alpha`` controls the balance between the new and previous value."""
     global _previous_faces, _missed_frames # Global variables preserving information between calls.
 
     smoothed_faces = []

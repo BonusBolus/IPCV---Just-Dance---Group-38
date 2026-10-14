@@ -26,7 +26,7 @@ stateDiagram-v2
 
 | State | What the players see | What the game checks | How to leave |
 |---|---|---|---|
-| **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour, a "ready" mark per player | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
+| **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the crown, a progress bar or "READY" above the crown | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
 | **Countdown** | Big "3", "2", "1", "Dance!" and the NEXT card with the first move | Only time | After 3 s → Playing (music starts) |
 | **Playing** | The NOW and NEXT move cards, score bar, a pose rating ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
 | **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1.5 s, or 20 s → Registration (new players) |
@@ -39,6 +39,9 @@ stateDiagram-v2
 - The tracker gives Player 1 and Player 2 to the first two people it sees.
 - A player is **ready** after holding both hands up for 1.5 s. If the player leaves the image, "ready" is removed again.
 - Extra help: when `tracker.colors_are_similar()` is True, show "Please wear different colours".
+- The hands-up progress bar is drawn above the player's crown. See [face_tracking.md](face_tracking.md).
+
+**In every state** the game draws big heads, a gold crown and the label "Player 1" / "Player 2" on the crown, plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
 
 **Countdown**
 - No grading yet. It gives players time to get into position.
@@ -93,11 +96,15 @@ scene/                        # one file per part of the screen (docs/scene_chan
     move_cards.py             #   NEW: the NOW / NEXT cards
     registration_screen.py    #   NEW: the Registration screen
     results_screen.py         #   NEW: the Results screen
+face_tracking/                # head effects (docs/face_tracking.md)
+    face_tracking.py          #   find faces (YuNet) and smooth them over time
+    head_filter.py            #   big heads
+    game_effects.py           #   crown, player label on the crown, which face belongs to which player
 choreography/
     poses.json                # the ONLY place where poses are defined
     song_1.json               # CHANGED: new format (section 5)
     song_1.wav                # NEW: the music (test music from branch test-structure)
-identity_tracking/, pose_tracking/, face_tracking/   # same
+identity_tracking/, pose_tracking/   # same
 
 REMOVED:
 game_loop/game_loop.py        # replaced by game_logic/song.py
@@ -111,7 +118,8 @@ choreography/choreography.json  # old frame-by-frame recording, not used
 |---|---|---|
 | `main.py` | Read command line arguments, create `Game`, call `game.run()` | Any game logic |
 | `config.py` | Numbers and paths: hold time, lost time, countdown time, file paths | Logic |
-| `game.py` | Own the shared parts (camera, pose, tracker, grader, song, scene). Each frame: read camera → find players → update state → draw → show | Decide what happens in a state |
+| `game.py` | Own the shared parts (camera, pose, tracker, grader, song, scene). Each frame: read camera → find faces (second thread) and players → update state → head effects → draw → show | Decide what happens in a state |
+| `face_tracking/*.py` | Find faces, and draw the head effects (big heads, crown, player label) | Game rules |
 | `states/*.py` | Decide **what** happens in each state, and when to switch. One file per state; `common.py` has the parts that more states use. | Draw pixels itself |
 | `song.py` | Load the song, play audio, give the song time, the current move and the next move | Grading |
 | `pose_grading.py` | Give a score 0–100 for one pose (the existing `PoseGrader`, not changed for now) | Keep totals |
@@ -121,7 +129,7 @@ The main rule: **states decide, the scene draws.** Then we can change the look w
 
 ## 4. How the code fits together
 
-This is a short sketch to show the idea. It is not the final code.
+This is a short sketch to show the idea. It is not the final code: the real `Game.step()` also runs face tracking in a second thread and draws the head effects (see [face_tracking.md](face_tracking.md)).
 
 ```python
 # game_logic/states/common.py

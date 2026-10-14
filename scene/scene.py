@@ -1,9 +1,8 @@
 import math
-
 import cv2
 import numpy as np
-
 from scene.functions import RATING_COLORS, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
+
 
 class Scene:
     def __init__(self, color_key="player_color"):
@@ -35,7 +34,7 @@ class Scene:
         return output
 
     def draw_title(self, frame, players, prompt=None, text_height=60):
-        """"Just Dance" at the top in the middle: "Just" in the colour of player 1, "Dance" in that of player 2.
+        """"Just Dance" at the top in the middle.
         players: list of player dicts, like render()
         prompt:  optional smaller line under the title, e.g. "Raise both hands when you are ready" """
         width = frame.shape[1]
@@ -60,8 +59,7 @@ class Scene:
 
         players: list of player dicts, like render()
         t:       time in seconds, drives the animation
-        edge:    width of the glow, as a fraction of the screen width
-        """
+        edge:    width of the glow, as a fraction of the screen width"""
         height, width = frame.shape[:2]
         strip = max(1, int(width * edge))
         colors = [tuple(int(c) for c in player[self.color_key][::-1]) for player in players[:2]]  # RGB -> BGR

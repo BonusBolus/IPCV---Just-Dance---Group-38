@@ -25,7 +25,7 @@ also in the assignment: task 2 finds the bodies, task 3 labels them.
 ## 2. Steps (do them in this order, test after each one)
 
 Open [identity.py](../identity_tracking/identity.py) and run `python main.py`. The people come from
-the pose estimation in [pose_tracking/pose_main.py](../pose_tracking/pose_main.py) (task 2):
+the pose estimation in [pose_tracking/pose_processing.py](../pose_tracking/pose_processing.py) (task 2):
 `people_from_pose()` turns its keypoints into one box per person.
 
 1. **`torso_box`**: shrink the person box to the shirt. Check it on screen: the thin white

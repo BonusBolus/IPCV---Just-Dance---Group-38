@@ -11,7 +11,6 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-
 import config
 
 os.environ.setdefault("PYGAME_HIDE_SUPPORT_PROMPT", "1")  # no "Hello from pygame" message
@@ -88,7 +87,6 @@ class Song:
             return False
         return True
 
-    # ------------------------------------------------------------------ music
     def start(self):
         self.started_at = time.perf_counter()
         self.last_time = 0.0
@@ -120,7 +118,6 @@ class Song:
             return not pygame.mixer.music.get_busy()
         return t > self.moves[-1].end + 2.0
 
-    # ------------------------------------------------------------------ moves
     def current_move(self, t):
         """The move that is active now, or None between moves."""
         for move in self.moves:

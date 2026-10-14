@@ -1,7 +1,7 @@
 import cv2
 import mixbox
-
 import config
+
 
 def mix_colors(rgb1, rgb2, ratio):
     r, g, b = mixbox.lerp(rgb1, rgb2, ratio)
@@ -32,7 +32,6 @@ def scale_for_height(target_height, font, thickness=1, text="Ag"):
     return target_height / h
 
 
-# ------------------------------------------------------------------ building blocks for the game screens
 # Colours in OpenCV order (BGR)
 WHITE = (255, 255, 255)
 GREY = (170, 170, 170)

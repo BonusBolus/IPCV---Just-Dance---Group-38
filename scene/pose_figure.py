@@ -1,4 +1,3 @@
-"""Draw a pose as a stick figure. Used by the move cards."""
 import cv2
 
 # Lines of the stick figure
@@ -17,8 +16,7 @@ def draw_pose(frame, pose, center_x, nose_y, scale, color, thickness=1):
     """Stick figure of a pose from poses.json: {"nose": (0, 0), "left_wrist": (x, y), ...}.
 
     center_x, nose_y: where the nose goes on the screen (pixels)
-    scale:            pixels per pose unit
-    """
+    scale:            pixels per pose unit"""
     pose_points = {**pose, "neck": (0, 0.3)}
 
     def to_pixels(point):

@@ -6,10 +6,6 @@ camera image, and both spend most time outside Python, so this saves about 7 ms 
 The states (game_logic/states/, one file per state) decide what happens. This file only connects the parts.
 """
 from concurrent.futures import ThreadPoolExecutor
-
-import cv2
-
-import config
 from camera import FPSCounter
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
 from face_tracking.head_filter import enlarge_heads
@@ -24,6 +20,8 @@ from identity_tracking.identity import IdentityTracker, draw_labels, people_from
 from pose_tracking.pose_processing import PoseEstimator
 from scene.functions import player_color
 from scene.scene import Scene
+import cv2
+import config
 
 WINDOW_NAME = "Just Dance"
 

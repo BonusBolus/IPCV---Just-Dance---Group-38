@@ -89,8 +89,7 @@ def people_from_pose(keypoints, min_confidence=0.1, margin=0.08):
 
     The box of a person is the smallest box around their keypoints that the model is sure
     about, made `margin` (8%) larger on every side because the keypoints sit inside the body.
-    People with fewer than 2 such keypoints are skipped: no box can be made for them.
-    """
+    People with fewer than 2 such keypoints are skipped: no box can be made for them."""
     people = []
     for person_keypoints in keypoints:
         visible = person_keypoints[person_keypoints[:, 2] >= min_confidence, :2]
@@ -118,8 +117,7 @@ def torso_box(person, min_confidence=0.5, torso_ratio=1.3):
     cut off by cut_region.
 
     If a shoulder is not visible either, fall back to a fixed part of the person box: the middle
-    50% of the width, and 25% to 55% of the height.
-    """
+    50% of the width, and 25% to 55% of the height."""
     kp = person.keypoints
     shoulders = [LEFT_SHOULDER, RIGHT_SHOULDER]
     hips = [i for i in (LEFT_HIP, RIGHT_HIP) if kp[i, 2] >= min_confidence]
@@ -160,8 +158,7 @@ def color_histogram(image, box, bins=8):
     The average colour loses information: a black-and-white striped shirt and a grey shirt
     have the same average. A histogram counts how many pixels fall in each colour range:
     every channel is split into `bins` ranges, giving 8 x 8 x 8 = 512 colour "boxes".
-    It is normalized (sums to 1), so the size of the region does not matter.
-    """
+    It is normalized (sums to 1), so the size of the region does not matter."""
     region = cut_region(image, box)
     if region.size == 0:
         return np.zeros(bins ** 3, np.float32)
@@ -173,8 +170,7 @@ def color_distance(color_a, color_b):
     """Return how different two colours are (0 = identical).
 
     A colour is a point in 3D space (B, G, R), so we use the Euclidean distance:
-    sqrt((B1 - B2)^2 + (G1 - G2)^2 + (R1 - R2)^2).
-    """
+    sqrt((B1 - B2)^2 + (G1 - G2)^2 + (R1 - R2)^2)."""
     return float(np.linalg.norm(color_a - color_b))
 
 
@@ -216,8 +212,7 @@ class IdentityTracker:
         """How badly a person fits a player: lower is better.
 
         colour difference + weight * how far the person is from where the player was last seen,
-        + weight * histogram difference when the players' colours are similar.
-        """
+        + weight * histogram difference when the players' colours are similar."""
         cost = color_distance(player.color, color)
         cost += self.position_weight * position_distance(player.box, box)
         if use_histogram:
@@ -240,8 +235,7 @@ class IdentityTracker:
              otherwise the person is someone else ("?")
           5. people without a player become new players while there is room
           6. matched players are updated: new position, colour moved 10% towards the new one
-          7. the players dict is filled in: visible players get their keypoints, the others not
-        """
+          7. the players dict is filled in: visible players get their keypoints, the others not"""
         # 1. shirt colour and histogram of every person
         colors = [average_color(image, torso_box(p)) for p in people]
         histograms = [color_histogram(image, torso_box(p)) for p in people]

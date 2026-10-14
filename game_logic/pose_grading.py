@@ -105,7 +105,7 @@ class PoseGrader:
     
     def __init__(self):
         
-        #Convert all poses to numpy arrays for easier processing
+        # Convert all poses to numpy arrays for easier processing
         self.processed_poses = {
             name: self._preprocess_pose(pose)
             for name, pose in self.poses.items()
@@ -146,7 +146,6 @@ class PoseGrader:
         player = np.asarray(player_keypoints, dtype=np.float32)
         if player.ndim != 2 or player.shape[1] not in (2, 3):
             raise ValueError(f"Expected keypoints with shape (N, 2 or 3), got {player.shape}")
-
         player = player.copy()
 
         # Center on nose
@@ -156,17 +155,12 @@ class PoseGrader:
         # Horizontal scale: shoulder width
         left_shoulder = player[self.KEYPOINTS["left_shoulder"], :2]
         right_shoulder = player[self.KEYPOINTS["right_shoulder"], :2]
-
-        shoulder_width = np.linalg.norm(
-            right_shoulder - left_shoulder
-        )
+        shoulder_width = np.linalg.norm(right_shoulder - left_shoulder)
 
         # Vertical scale: nose -> hip center
         left_hip = player[self.KEYPOINTS["left_hip"], :2]
         right_hip = player[self.KEYPOINTS["right_hip"], :2]
-
         hip_center = (left_hip + right_hip) / 2
-
         torso_height = abs(hip_center[1])
 
         player[:, 0] /= shoulder_width
@@ -177,7 +171,6 @@ class PoseGrader:
     def grade_pose(self, player_keypoints, reference_pose):
         
         player = self._normalize_keypoints(player_keypoints)
-        
         pose = self.processed_poses[reference_pose]
         
         # Only select keypoints that are defined in the reference pose
@@ -190,7 +183,6 @@ class PoseGrader:
             player_positions - pose["reference"],
             axis=1,
         )
-        
         mean_error = errors.mean()
         
         # Convert error to score between approximately 0 and 100

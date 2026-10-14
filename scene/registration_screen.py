@@ -1,16 +1,13 @@
-"""The Registration screen: the camera image with a progress bar above each player's head.
-The "Player 1" / "Player 2" labels themselves are drawn on the crown, for every state (see game.py)."""
 from face_tracking.game_effects import crown_top
 from scene.functions import GREEN, draw_banner, draw_bar, draw_text, player_color
 
 
 def draw_registration(frame, players, heads, ready, progress, colors_similar):
-    """players:        dict from the IdentityTracker, {1: {...}, 2: {...}}
+    """players:     dict from the IdentityTracker, {1: {...}, 2: {...}}
     heads:          {1: face or None, ...}: the face of each player (game_effects.faces_for_players)
     ready:          {1: True, 2: False}: did the player finish the hands-up gesture?
     progress:       {1: 0.4, 2: 0.0}: how far the hands-up gesture is (0..1)
-    colors_similar: True if the shirts look the same (then the tracker can mix up the players)
-    """
+    colors_similar: True if the shirts look the same (then the tracker can mix up the players)"""
     height, width = frame.shape[:2]
     for player_id, player in players.items():
         color = player_color(player)

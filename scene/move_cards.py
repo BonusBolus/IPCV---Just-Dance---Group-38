@@ -7,7 +7,6 @@ NEXT: the coming move, visible from the countdown on. Its bar fills up until the
 Gold moves get a gold border and the label "GOLD".
 """
 import cv2
-
 from scene.functions import GOLD, GREEN, GREY, WHITE, draw_bar, draw_text
 from scene.pose_figure import draw_pose
 

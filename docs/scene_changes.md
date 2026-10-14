@@ -12,7 +12,7 @@ We tested it: everything draws **the same pixels** as before.
 
 | File | What is in it | Used by |
 |---|---|---|
-| `scene.py` | **The original** `Scene` class: title, score bar, current pose, `draw_player()`. **New:** `draw_ratings()` | Countdown, Playing |
+| `scene.py` | **The original** `Scene` class: title, score bar, current pose, `draw_player()`. **New:** `draw_ratings()`, `draw_title()`, `draw_edge_effects()` | all states |
 | `functions.py` | **The original** text helpers. **New at the end:** colours and small building blocks | all files below |
 | `pose_figure.py` | **New.** Draws a pose as a stick figure | `move_cards.py` |
 | `move_cards.py` | **New.** The NOW and NEXT cards | Countdown, Playing |
@@ -37,7 +37,9 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 | the text outline, the progress bars, the red warning banner | `functions.py` |
 | how a pose looks (lines, head, thickness) | `pose_figure.py` |
 | the size or place of the NOW / NEXT cards, the pulse, the flash | `move_cards.py` |
-| the player labels, "READY", "Waiting for Player 2..." | `registration_screen.py` |
+| the progress bar / "READY" above the crown, "Waiting for Player 2..." | `registration_screen.py` |
+| the "Player 1" / "Player 2" labels on the crown, the crown, the big heads | `face_tracking/game_effects.py`, see [face_tracking.md](face_tracking.md) |
+| the glow and sparkles at the screen edges | `scene.py`, `draw_edge_effects()` |
 | the scores, the winner text, "Raise both hands to play again" | `results_screen.py` |
 | the title, the score bar, where "Perfect" / "Good" is shown | `scene.py` |
 
@@ -59,6 +61,13 @@ def draw_ratings(self, frame, ratings):
 
 It is in `scene.py` because the ratings are placed under the score bar (`self.score_bottom`).
 `render(frame, players)` without a pose is used for the title and score bar during Countdown and Playing.
+
+Two more methods were added later:
+
+| Method | What it does | Used by |
+|---|---|---|
+| `draw_title(frame, players, prompt=None)` | "Just Dance" at the top: "Just" in the colour of player 1, "Dance" in that of player 2. `prompt` is an optional smaller line under it. `render()` uses it too. | Registration (with the prompt), `render()` |
+| `draw_edge_effects(frame, players, t)` | A soft glow in the player colours along the left and right edge that pulses slowly, with sparkles rising along the edges. `t` (seconds) drives the animation. | `Game.step()`, every state |
 
 ## `functions.py`: building blocks
 
@@ -101,10 +110,13 @@ draw_move_cards(frame, now_move, now_progress, next_move, next_progress, beat_ph
 ## `registration_screen.py`
 
 ```python
-draw_registration(frame, players, ready, progress, colors_similar)
+draw_registration(frame, players, heads, ready, progress, colors_similar)
 ```
 
-- Above each player: "Player 1" in the player colour, and the progress bar of the hands-up gesture. When the player is ready: "READY".
+- `heads` is `game.heads`: the face of each player, or `None` (see [face_tracking.md](face_tracking.md)).
+- The label "Player 1" is **not** drawn here: `Game.step()` writes it on the crown in every state.
+- Just above the crown of each player: the progress bar of the hands-up gesture, as wide as the crown. When the player is ready: "READY".
+- When no face is found for a player, the label and the bar are drawn at the top of the player's box instead.
 - A player that is not found yet: "Waiting for Player 2..." at the bottom.
 - At the top: "Raise both hands when you are ready".
 - `colors_similar=True`: the banner "Please wear different colours".
@@ -127,9 +139,11 @@ draw_results(frame, players, winner, progress, show_hint)
 
 | State | Calls |
 |---|---|
-| Registration | `draw_registration()` |
+| Registration | `draw_registration()`, `game.scene.draw_title()` |
 | Countdown | `game.scene.render()`, `draw_move_cards()`, `draw_big_text()` |
 | Playing | `game.scene.render()`, `draw_move_cards()`, `game.scene.draw_ratings()`, `draw_banner()`, `draw_big_text()` |
 | Results | `draw_results()` |
 
-Want to change how something looks? Only change the file in `scene/`. The game rules in `game_logic/states/` stay the same.
+`Game.step()` draws the head effects (big heads, crown, player label) and `draw_edge_effects()` **before** the state draws, in every state.
+
+Want to change how something looks? Only change the file in `scene/` (or `face_tracking/game_effects.py` for the head effects). The game rules in `game_logic/states/` stay the same.

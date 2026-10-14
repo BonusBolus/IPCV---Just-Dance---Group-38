@@ -1,10 +1,6 @@
-"""Head-anchored visual effects for the game state.
-"""
-
 from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
-
 import cv2
 import numpy as np
 
@@ -29,9 +25,7 @@ def _rotated(points: np.ndarray, centre: tuple[float, float], angle: float) -> n
     return (points @ rotation.T + np.asarray(centre)).round().astype(np.int32)
 
 
-# Crown shape, in units of the face size. The crown centre sits CROWN_LIFT face heights above
-# the face centre. Its band (the big yellow strip under the points) runs from BAND_TOP to the
-# bottom edge, in units of the crown height measured from the crown centre (positive = down).
+# Crown shape, in units of the face size.
 CROWN_WIDTH = 1.18       # x face width
 CROWN_HEIGHT = 0.52      # x face height
 CROWN_LIFT = 0.69        # x face height
@@ -49,8 +43,7 @@ def head_point(face: Mapping[str, Any], lift: float) -> tuple[float, float]:
 
 
 def crown_band(face: Mapping[str, Any]) -> tuple[tuple[float, float], float, float, float]:
-    """Centre, width, height and angle of the crown's band: the place for the player label.
-    Without a crown the same spot is the forehead."""
+    """Centre, width, height and angle of the crown's band: the place for the player label."""
     _, _, face_width, face_height, angle = _head_properties(face)
     crown_height = face_height * CROWN_HEIGHT
     band_middle = (BAND_TOP + BAND_BOTTOM) / 2 * CROWN_HEIGHT
@@ -68,8 +61,7 @@ def faces_for_players(players: Mapping[int, Any], faces: list) -> dict:
 
     A face belongs to a player when its centre lies inside the player's box. When more faces
     qualify, the one closest to the player's nose (or the top of the box) wins. Each face is
-    given to at most one player.
-    """
+    given to at most one player."""
     pairs = []
     for player_id, player in players.items():
         if not player["visible"] or player["box"] is None:
@@ -97,15 +89,11 @@ def add_crown(frame: np.ndarray, smooth_face_properties: Any) -> np.ndarray:
     """Draw a gold crown above a player's smoothed face position in ``frame``.
 
     The crown is sized from the face width and rotated using the smoothed head
-    angle.
-    """
+    angle."""
     for face in smooth_face_properties:
         try:
             _, _, face_width, face_height, angle = _head_properties(face)
         except (TypeError, ValueError):
-            # Face detectors commonly retain a zero-sized placeholder while a
-            # face is lost between frames.  It is not drawable, but also is not
-            # an error for the game loop.
             continue
         crown_width = face_width * CROWN_WIDTH
         crown_height = face_height * CROWN_HEIGHT
@@ -128,10 +116,7 @@ def add_crown(frame: np.ndarray, smooth_face_properties: Any) -> np.ndarray:
 
 
 def add_player_label(frame: np.ndarray, text: str, face: Mapping[str, Any], color=(255, 255, 255)) -> np.ndarray:
-    """Write ``text`` on the band of the crown (or the forehead), tilted with the head.
-
-    The text is sized to fit the band, so a crown drawn first works as its background.
-    """
+    """Write ``text`` on the band of the crown (or the forehead), tilted with the head."""
     try:
         centre, band_width, band_height, angle = crown_band(face)
     except (TypeError, ValueError):

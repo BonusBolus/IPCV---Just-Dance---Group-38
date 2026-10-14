@@ -5,15 +5,11 @@ import config
 
 
 class PoseEstimator:
-    
-    """
-    A class that estimates the pose of a person in a video frame using a YOLO model.
+    """A class that estimates the pose of a person in a video frame using a YOLO model.
     First identifies the keypoints of the person in the frame, then estimates the motion based on the keypoints.
-    Applies different smoothing techniques to the keypoints and motion to reduce noise and improve accuracy.
-    """
+    Applies different smoothing techniques to the keypoints and motion to reduce noise and improve accuracy."""
     
     ### YOLO DEFINITIONS ###
-    
     NUM_KEYPOINTS = 17
     KEYPOINT_SIZE = 3  # x, y, confidence
 

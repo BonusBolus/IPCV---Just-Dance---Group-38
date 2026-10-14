@@ -1,12 +1,10 @@
-"""The Results screen: darker image, the scores and the winner in the middle."""
 from scene.functions import GREEN, WHITE, draw_bar, draw_text, player_color
 
 
 def draw_results(frame, players, winner, progress, show_hint):
     """winner:    the player dict of the winner, or None for a draw
     progress:  how far the hands-up gesture is (0..1)
-    show_hint: show "Raise both hands to play again" and the progress bar
-    """
+    show_hint: show "Raise both hands to play again" and the progress bar"""
     player_1, player_2 = players[1], players[2]
     if winner is None:
         winner_line = ("Draw!", WHITE, 1.5)
