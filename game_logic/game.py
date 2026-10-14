@@ -13,7 +13,7 @@ import config
 from camera import FPSCounter
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
 from face_tracking.head_filter import enlarge_heads
-from face_tracking.game_effects import add_crown, add_player_name
+from face_tracking.game_effects import add_crown, add_player_label, faces_for_players
 from game_logic.pose_grading import PoseGrader
 from game_logic.song import Song
 from game_logic.states.countdown import CountdownState
@@ -22,6 +22,7 @@ from game_logic.states.registration import RegistrationState
 from game_logic.states.results import ResultsState
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 from pose_tracking.pose_processing import PoseEstimator
+from scene.functions import player_color
 from scene.scene import Scene
 
 WINDOW_NAME = "Just Dance"
@@ -59,6 +60,7 @@ class Game:
         }
         self.players = self.tracker.entries   # {1: {...}, 2: {...}}, see identity.new_player_entry()
         self.now = 0.0                        # time of the current frame (seconds)
+        self.heads = {}                       # player id -> face of that player, or None
         self.state_name = None
         self.state = None
 
@@ -85,7 +87,11 @@ class Game:
         faces = faces_future.result()                  # wait for the face thread (usually done already)
         enlarge_heads(image, faces, config.HEAD_ENLARGEMENT)
         add_crown(image, faces)
-        add_player_name(image, "Player NAME", faces)
+        # The player label sits on the crown band (on the forehead when there is no crown)
+        self.heads = faces_for_players(self.players, faces)
+        for player_id, face in self.heads.items():
+            if face is not None:
+                add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
         self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
         if self.debug:
             draw_labels(image, self.players)

@@ -29,6 +29,70 @@ def _rotated(points: np.ndarray, centre: tuple[float, float], angle: float) -> n
     return (points @ rotation.T + np.asarray(centre)).round().astype(np.int32)
 
 
+# Crown shape, in units of the face size. The crown centre sits CROWN_LIFT face heights above
+# the face centre. Its band (the big yellow strip under the points) runs from BAND_TOP to the
+# bottom edge, in units of the crown height measured from the crown centre (positive = down).
+CROWN_WIDTH = 1.18       # x face width
+CROWN_HEIGHT = 0.52      # x face height
+CROWN_LIFT = 0.69        # x face height
+BAND_TOP = 0.13          # just below the jewels
+BAND_BOTTOM = 0.5
+TIP_TOP = -0.55          # highest point of the crown
+SUPERSAMPLE = 4          # labels are drawn this many times bigger, then shrunk (sharper small text)
+
+
+def head_point(face: Mapping[str, Any], lift: float) -> tuple[float, float]:
+    """Point ``lift`` face heights above the face centre, along the tilted head axis."""
+    cx, cy, _, face_height, angle = _head_properties(face)
+    radians = np.deg2rad(angle)
+    return cx + face_height * lift * np.sin(radians), cy - face_height * lift * np.cos(radians)
+
+
+def crown_band(face: Mapping[str, Any]) -> tuple[tuple[float, float], float, float, float]:
+    """Centre, width, height and angle of the crown's band: the place for the player label.
+    Without a crown the same spot is the forehead."""
+    _, _, face_width, face_height, angle = _head_properties(face)
+    crown_height = face_height * CROWN_HEIGHT
+    band_middle = (BAND_TOP + BAND_BOTTOM) / 2 * CROWN_HEIGHT
+    centre = head_point(face, CROWN_LIFT - band_middle)
+    return centre, face_width * CROWN_WIDTH, crown_height * (BAND_BOTTOM - BAND_TOP), angle
+
+
+def crown_top(face: Mapping[str, Any]) -> tuple[float, float]:
+    """Point just above the highest tip of the crown."""
+    return head_point(face, CROWN_LIFT - TIP_TOP * CROWN_HEIGHT)
+
+
+def faces_for_players(players: Mapping[int, Any], faces: list) -> dict:
+    """Give every visible player the face that belongs to them, or None.
+
+    A face belongs to a player when its centre lies inside the player's box. When more faces
+    qualify, the one closest to the player's nose (or the top of the box) wins. Each face is
+    given to at most one player.
+    """
+    pairs = []
+    for player_id, player in players.items():
+        if not player["visible"] or player["box"] is None:
+            continue
+        x, y, w, h = player["box"]
+        nose = player["keypoints"].get("nose") or (x + w / 2, y + h * 0.1)
+        for index, face in enumerate(faces):
+            try:
+                fx, fy, *_ = _head_properties(face)
+            except (TypeError, ValueError):
+                continue
+            if x <= fx <= x + w and y <= fy <= y + h:
+                pairs.append((np.hypot(fx - nose[0], fy - nose[1]), player_id, index))
+
+    result = {player_id: None for player_id in players}
+    used = set()
+    for _, player_id, index in sorted(pairs):
+        if result[player_id] is None and index not in used:
+            result[player_id] = faces[index]
+            used.add(index)
+    return result
+
+
 def add_crown(frame: np.ndarray, smooth_face_properties: Any) -> np.ndarray:
     """Draw a gold crown above a player's smoothed face position in ``frame``.
 
@@ -37,20 +101,20 @@ def add_crown(frame: np.ndarray, smooth_face_properties: Any) -> np.ndarray:
     """
     for face in smooth_face_properties:
         try:
-            cx, cy, face_width, face_height, angle = _head_properties(face)
+            _, _, face_width, face_height, angle = _head_properties(face)
         except (TypeError, ValueError):
             # Face detectors commonly retain a zero-sized placeholder while a
             # face is lost between frames.  It is not drawable, but also is not
             # an error for the game loop.
             continue
-        crown_width = face_width * 1.18
-        crown_height = face_height * 0.52
+        crown_width = face_width * CROWN_WIDTH
+        crown_height = face_height * CROWN_HEIGHT
         # Coordinates are relative to the crown's centre, positioned above the face.
-        crown_centre = (cx + face_height * 0.69 * np.sin(angle * np.pi / 180), cy - face_height * 0.69 * np.cos(angle * np.pi / 180))
+        crown_centre = head_point(face, CROWN_LIFT)
         w, h = crown_width / 2, crown_height
         polygon = np.array([
-            [-w, h / 2], [-w, -h / 2], [-w * .52, h * .05], [-w * .22, -h * .55],
-            [0, h * .05], [w * .22, -h * .55], [w * .52, h * .05], [w, -h / 2], [w, h / 2],
+            [-w, h * BAND_BOTTOM], [-w, -h / 2], [-w * .52, h * .05], [-w * .22, h * TIP_TOP],
+            [0, h * .05], [w * .22, h * TIP_TOP], [w * .52, h * .05], [w, -h / 2], [w, h * BAND_BOTTOM],
         ])
         points = _rotated(polygon, crown_centre, angle)
 
@@ -63,36 +127,51 @@ def add_crown(frame: np.ndarray, smooth_face_properties: Any) -> np.ndarray:
     return frame
 
 
-def add_player_name(frame: np.ndarray, text: str, smooth_face_properties: Any) -> np.ndarray:
-    """Write ``text`` above a player's head using their smoothed face properties."""
-    for face in smooth_face_properties:
-        try:
-            cx, cy, face_width, face_height, angle = _head_properties(face)
-        except (TypeError, ValueError):
-            # Face detectors commonly retain a zero-sized placeholder while a
-            # face is lost between frames.  It is not drawable, but also is not
-            # an error for the game loop.
-            continue
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        scale = max(1, face_width / 100)
-        thickness = max(1, round(scale * 2))
-        (text_width, text_height), baseline = cv2.getTextSize(text, font, scale, thickness)
+def add_player_label(frame: np.ndarray, text: str, face: Mapping[str, Any], color=(255, 255, 255)) -> np.ndarray:
+    """Write ``text`` on the band of the crown (or the forehead), tilted with the head.
 
-        # The text is first written on a tile before putting it in the frame.
-        tile = np.zeros((text_height + baseline + 12, text_width + 12, 3), dtype=frame.dtype)
-        origin = (6, text_height + 4)
-        # A thicker black text is put behind the white text to create white text with black borders.
-        cv2.putText(tile, text, origin, font, scale, (0, 0, 0), thickness + 2, cv2.LINE_AA)
-        cv2.putText(tile, text, origin, font, scale, (255, 255, 255), thickness, cv2.LINE_AA)
-        # Calculate the position of the top left corner of the tile in the frame.
-        top = int(round(cy - face_height * np.cos(angle * np.pi / 180) - tile.shape[0] / 2))
-        left = int(round(cx + face_height * np.sin(angle * np.pi / 180) - tile.shape[1] / 2))
-        y1, y2 = max(0, top), min(frame.shape[0], top + tile.shape[0])
-        x1, x2 = max(0, left), min(frame.shape[1], left + tile.shape[1])
-        # Draws the text in the frame, while making sure to not access pixels outside of the frame.
-        if y1 < y2 and x1 < x2:
-            source = tile[y1 - top:y2 - top, x1 - left:x2 - left]
-            mask = np.any(source != 0, axis=2)
-            frame_region = frame[y1:y2, x1:x2]
-            frame_region[mask] = source[mask]
+    The text is sized to fit the band, so a crown drawn first works as its background.
+    """
+    try:
+        centre, band_width, band_height, angle = crown_band(face)
+    except (TypeError, ValueError):
+        return frame
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    (unit_width, unit_height), _ = cv2.getTextSize(text, font, 1.0, 2)
+    scale = max(0.4, min(band_height * 0.8 / unit_height, band_width * 0.9 / unit_width))
+
+    # The text is small, so it is written SUPERSAMPLE times bigger on a square tile (room to
+    # rotate), together with a mask of its pixels, and shrunk afterwards: this keeps it sharp.
+    big_scale = scale * SUPERSAMPLE
+    thickness = max(2, round(big_scale * 1.8))
+    outline = thickness + max(3, round(big_scale * 1.2))
+    (text_width, text_height), baseline = cv2.getTextSize(text, font, big_scale, outline)
+    size = int(np.hypot(text_width, text_height + baseline) / SUPERSAMPLE + 4) * SUPERSAMPLE
+    tile = np.zeros((size, size, 3), dtype=np.uint8)
+    mask = np.zeros((size, size), dtype=np.uint8)
+    origin = ((size - text_width) // 2, (size + text_height) // 2)
+    # A thicker black text is put behind the coloured text to give it a black border.
+    cv2.putText(tile, text, origin, font, big_scale, (0, 0, 0), outline, cv2.LINE_AA)
+    cv2.putText(tile, text, origin, font, big_scale, color, thickness, cv2.LINE_AA)
+    cv2.putText(mask, text, origin, font, big_scale, 255, outline, cv2.LINE_AA)
+
+    # Tilt the tile with the head. getRotationMatrix2D turns the other way than _rotated().
+    rotation = cv2.getRotationMatrix2D((size / 2, size / 2), -angle, 1.0)
+    tile = cv2.warpAffine(tile, rotation, (size, size), flags=cv2.INTER_LINEAR)
+    mask = cv2.warpAffine(mask, rotation, (size, size), flags=cv2.INTER_LINEAR)
+    size //= SUPERSAMPLE
+    tile = cv2.resize(tile, (size, size), interpolation=cv2.INTER_AREA)
+    mask = cv2.resize(mask, (size, size), interpolation=cv2.INTER_AREA)
+
+    # Position of the top left corner of the tile in the frame.
+    top = int(round(centre[1] - size / 2))
+    left = int(round(centre[0] - size / 2))
+    y1, y2 = max(0, top), min(frame.shape[0], top + size)
+    x1, x2 = max(0, left), min(frame.shape[1], left + size)
+    # Blend the text into the frame, while making sure to not access pixels outside of the frame.
+    if y1 < y2 and x1 < x2:
+        source = tile[y1 - top:y2 - top, x1 - left:x2 - left].astype(np.float32)
+        alpha = mask[y1 - top:y2 - top, x1 - left:x2 - left, np.newaxis].astype(np.float32) / 255
+        region = frame[y1:y2, x1:x2]
+        region[:] = (alpha * source + (1 - alpha) * region).astype(frame.dtype)
     return frame
