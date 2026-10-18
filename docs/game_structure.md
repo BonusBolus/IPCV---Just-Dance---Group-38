@@ -103,7 +103,7 @@ face_tracking/                # head effects (docs/face_tracking.md)
 choreography/
     poses.json                # the ONLY place where poses are defined
     song_1.json               # CHANGED: new format (section 5)
-    song_1.wav                # NEW: the music (test music from branch test-structure)
+    *.ogg                     # the music of each song (.ogg: about 8x smaller than .wav)
 identity_tracking/, pose_tracking/   # same
 
 REMOVED:
@@ -220,7 +220,7 @@ The frame-by-frame recording `choreography.json` (from branch `test-structure`) 
 ```json
 {
     "title": "Song 1",
-    "audio": "song_1.wav",
+    "audio": "song_1.ogg",
     "bpm": 120,
     "offset": 0.0,
     "moves": [
@@ -244,7 +244,7 @@ The frame-by-frame recording `choreography.json` (from branch `test-structure`) 
 Beat to seconds: `seconds = offset + beat * 60 / bpm`.
 Because we use beats, all moves stay on the music. If the music starts a bit late, we only change `offset`.
 
-**Test music:** branch `test-structure` has `assets/song.wav`. A script made this file, so there is no copyright problem. It is 120 BPM and 64 s, the same as `song_1`. We can copy it to `choreography/song_1.wav` until we have a real song.
+**Test music:** branch `test-structure` has `assets/song.wav`. A script made this file, so there is no copyright problem. It is 120 BPM and 64 s, the same as `song_1`. It is in the repo as `choreography/song_1.ogg`. All music is stored as `.ogg` (Ogg Vorbis): about 8x smaller than `.wav`, with the same length and timing. `choreography/*.wav` is in `.gitignore`.
 
 ### Inside `song.py`
 

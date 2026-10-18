@@ -1,6 +1,6 @@
 {
     "title": "Song 1",
-    "audio": "song_1.wav",
+    "audio": "song_1.ogg",
     "bpm": 40,
     "offset": 0.0,
     "moves": [
