@@ -5,6 +5,7 @@ Face tracking runs in a second thread, at the same time as the pose (YOLO). Both
 camera image, and both spend most time outside Python, so this saves about 7 ms per frame.
 The states (game_logic/states/, one file per state) decide what happens. This file only connects the parts.
 """
+import time
 from concurrent.futures import ThreadPoolExecutor
 from camera import FPSCounter
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
@@ -113,7 +114,9 @@ class Game:
         if self.fullscreen:
             cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         window_sized = self.fullscreen                 # a full-screen window already has its size
+        frame_time = 1.0 / config.MAX_FPS
         while True:
+            frame_start = time.perf_counter()
             frame = self.camera.read()
             if frame is None:
                 break
@@ -125,7 +128,10 @@ class Game:
                 window_sized = True
             cv2.imshow(WINDOW_NAME, image)
 
-            key = cv2.waitKey(1) & 0xFF
+            # Wait for the rest of this frame's time, so the game never runs faster than MAX_FPS.
+            # waitKey does the waiting, so the window stays responsive (and q / ESC still work).
+            wait_ms = int((frame_time - (time.perf_counter() - frame_start)) * 1000)
+            key = cv2.waitKey(max(1, wait_ms)) & 0xFF
             if key in (ord("q"), 27):          # safety exit, not a game control
                 break
             if self.debug and key == ord("n"):

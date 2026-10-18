@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parent
 POSES_PATH = ROOT / "choreography" / "poses.json"
 SONG_PATH = ROOT / "choreography" / "rasputin.json"
 YOLO_MODEL_PATH = ROOT / "yolo26n-pose.pt"
+MAX_FPS = 25             # the game never runs faster than this: less work and heat for the laptop
 USE_OPENVINO = True      # run YOLO with OpenVINO: about 2x faster on the CPU, same model (see pose_processing.py)
 
 HOLD_TIME = 1.5          # seconds to hold "hands up"
