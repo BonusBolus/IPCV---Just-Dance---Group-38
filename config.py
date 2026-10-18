@@ -13,7 +13,6 @@ RESULTS_MAX_TIME = 20.0  # back to registration after this
 GRADE_GRACE = 0.3        # extra seconds to hit a pose after the move ends
 RATING_TIME = 1.0        # how long "Perfect" etc. stays on screen
 DEFAULT_MOVE_BEATS = 2
-MIN_LIMBS = 3            # fewer visible limbs: do not grade this frame
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 4.5
