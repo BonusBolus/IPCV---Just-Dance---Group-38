@@ -1,6 +1,10 @@
 from face_tracking.game_effects import crown_top
 from scene.functions import GREEN, draw_banner, draw_bar, draw_text, player_color
 
+# Scene.draw_title() uses the top of the screen: the title until y = 80, the prompt around y = 115.
+# Labels and bars stay below this line, so they never cover the title or the prompt.
+TOP_MARGIN = 140
+
 
 def draw_registration(frame, players, heads, ready, progress, colors_similar):
     """players:     dict from the IdentityTracker, {1: {...}, 2: {...}}
@@ -21,10 +25,14 @@ def draw_registration(frame, players, heads, ready, progress, colors_similar):
             top_x, top_y = crown_top(face)
             bar_width = max(80, int(face["size"][0] * 1.18))
             center_x, bar_y = int(top_x), int(top_y) - 22
+            if bar_y < TOP_MARGIN:
+                # no room above the crown (the player stands close to the camera): under the chin
+                chin_y = face["location"][1] + face["size"][1] // 2
+                bar_y = max(int(chin_y) + 12, TOP_MARGIN)
         else:
             # no face found: fall back to the top of the player's box (with the label there too)
             x, y, w, h = player["box"]
-            center_x, label_y = x + w // 2, max(y - 50, 100)
+            center_x, label_y = x + w // 2, max(y - 50, TOP_MARGIN + 15)
             draw_text(frame, f"Player {player_id}", (center_x, label_y), 1.0, color, 3)
             bar_width, bar_y = 140, label_y + 20
         if ready[player_id]:
