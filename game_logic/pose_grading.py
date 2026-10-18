@@ -1,5 +1,4 @@
 import json
-from pathlib import Path
 
 import numpy as np
 import config
@@ -28,9 +27,9 @@ class PoseGrader:
     }
 
     def __init__(self):
-        pose_file = Path("choreography") / "poses.json"
-
-        with open(pose_file, "r") as f:
+        # config.POSES_PATH is built from the project folder, so this also works
+        # when the game is started from another folder
+        with open(config.POSES_PATH, "r") as f:
             self.poses = json.load(f)
 
         # Convert reference keypoints to reference angles once
