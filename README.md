@@ -20,6 +20,7 @@ python main.py                  # webcam 0
 python main.py --camera 1       # another webcam
 python main.py --video file.mp4 # a video file instead of the webcam
 python main.py --debug          # debug drawings (boxes, FPS, state); n jumps to the next state
+python main.py --windowed       # a window instead of full screen (q or ESC closes the game)
 ```
 
 `q` or `ESC` closes the game. That is only a safety exit: the game itself is played with gestures.

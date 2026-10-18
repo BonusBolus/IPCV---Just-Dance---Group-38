@@ -4,6 +4,7 @@ Run:  python main.py                 (webcam 0)
       python main.py --camera 1      (other webcam)
       python main.py --video file.mp4
       python main.py --debug         (debug drawings, n = next state)
+      python main.py --windowed      (a window instead of full screen)
 
 Play: raise both hands above your head to start. q or ESC closes the game.
 """
@@ -18,10 +19,11 @@ def main():
     parser.add_argument("--camera", type=int, default=0)
     parser.add_argument("--video", help="use a video file instead of the webcam")
     parser.add_argument("--debug", action="store_true", help="show debug drawings, n jumps to the next state")
+    parser.add_argument("--windowed", action="store_true", help="show the game in a window instead of full screen")
     args = parser.parse_args()
 
     camera = Camera(args.video if args.video else args.camera)
-    Game(camera, debug=args.debug).run()
+    Game(camera, debug=args.debug, fullscreen=not args.windowed).run()
 
 
 if __name__ == "__main__":

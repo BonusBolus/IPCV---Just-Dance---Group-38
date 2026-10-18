@@ -37,9 +37,10 @@ NEXT_STATE = {"registration": "countdown", "countdown": "playing",
 
 
 class Game:
-    def __init__(self, camera, debug=False):
+    def __init__(self, camera, debug=False, fullscreen=True):
         self.camera = camera
         self.debug = debug
+        self.fullscreen = fullscreen
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
@@ -107,9 +108,11 @@ class Game:
 
     def run(self):
         # A window without the toolbar and status bar: showing an image is about 2.5 ms faster.
-        # The window can be made bigger, the image keeps its shape.
+        # The window can be made bigger, the image keeps its shape (black bars at the sides if needed).
         cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL | cv2.WINDOW_KEEPRATIO | cv2.WINDOW_GUI_NORMAL)
-        window_sized = False
+        if self.fullscreen:
+            cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
+        window_sized = self.fullscreen                 # a full-screen window already has its size
         while True:
             frame = self.camera.read()
             if frame is None:
