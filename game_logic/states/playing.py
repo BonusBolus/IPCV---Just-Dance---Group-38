@@ -40,7 +40,7 @@ class PlayingState(State):
         game.song.start()
         self.move = None                                 # the move we are grading now
         self.graded = False                              # False if the PoseGrader does not know the pose
-        self.best = {i: None for i in PLAYER_IDS}        # best score of each player for this move
+        self.frame_scores = {i: [] for i in PLAYER_IDS}  # score of every graded frame of this move, per player
         self.live = {i: None for i in PLAYER_IDS}          # score in this frame (debug only)
         self.interacted = False                          # both players met this move's interaction
         self.duet_bonus_since = None
@@ -77,8 +77,7 @@ class PlayingState(State):
                     continue                             # for example shoulders on top of each other
                 kps[i] = keypoints
                 self.live[i] = score
-                if self.best[i] is None or score > self.best[i]:
-                    self.best[i] = score
+                self.frame_scores[i].append(score)
 
             if duet and len(kps) == len(PLAYER_IDS) and all(
                 self.live[i] >= config.DUET_MIN_SCORE for i in PLAYER_IDS
@@ -92,8 +91,17 @@ class PlayingState(State):
             return "results"
         return None
 
+    def move_score(self, player_id):
+        """Score of a player for the move: the SCORE_PERCENTILE (70th) percentile of the frame scores.
+
+        With the best frame, one lucky frame was enough. Now the player must hold the pose for at
+        least about 30% of the move. Frames where the player was not visible are not counted;
+        a player who was not graded at all gets 0."""
+        scores = self.frame_scores[player_id]
+        return float(np.percentile(scores, config.SCORE_PERCENTILE)) if scores else 0.0
+
     def finish_move(self, game):
-        """Best score once per move, x2 for gold, plus a successful duet's bonus."""
+        """Points once per move (see move_score), x2 for gold, plus a successful duet's bonus."""
         if self.move is None:
             return
         if not self.graded:                              # the PoseGrader does not know this pose
@@ -102,7 +110,7 @@ class PlayingState(State):
         duet_bonus = self.move.players == 2 and self.interacted
         bonus_awarded = False
         for i in PLAYER_IDS:
-            score = self.best[i] or 0.0
+            score = self.move_score(i)
             points = round(score * 2 if self.move.gold else score)
             bonus = round(points * config.DUET_BONUS) if duet_bonus else 0
             points += bonus
@@ -113,7 +121,7 @@ class PlayingState(State):
         if bonus_awarded:
             self.duet_bonus_since = game.now
         self.move = None
-        self.best = {i: None for i in PLAYER_IDS}
+        self.frame_scores = {i: [] for i in PLAYER_IDS}
         self.interacted = False
 
     def is_lost(self, game, player_id):

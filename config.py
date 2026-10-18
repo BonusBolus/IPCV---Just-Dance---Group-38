@@ -17,6 +17,7 @@ MIN_LIMBS = 3            # fewer visible limbs: do not grade this frame
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 4.5
+SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame scores: hold the pose, one lucky frame is not enough
 DUET_MIN_SCORE = 50 #BOTH PLAYERS 50 points out of 100 for bonus to count
 DUET_BONUS = 0.25 #%
 DUET_BONUS_TIME = 1.5   # seconds the duet bonus popup stays on screen
