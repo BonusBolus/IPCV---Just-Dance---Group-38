@@ -4,6 +4,21 @@ import cv2
 import config
 
 
+def load_pose_model():
+    """The YOLO pose model. With USE_OPENVINO it runs about 2x faster on the CPU.
+
+    It is the same model, converted once to OpenVINO (takes about a second, the folder is made
+    next to the .pt file). The keypoints are at most about 1 px different from PyTorch.
+    `dynamic=True` makes it work for every camera size, like PyTorch."""
+    if not config.USE_OPENVINO:
+        return YOLO(str(config.YOLO_MODEL_PATH))
+    folder = config.YOLO_MODEL_PATH.with_name(config.YOLO_MODEL_PATH.stem + "_openvino_model")
+    if not folder.exists():
+        print("Converting the YOLO model to OpenVINO (only the first time)...")
+        YOLO(str(config.YOLO_MODEL_PATH)).export(format="openvino", dynamic=True)
+    return YOLO(str(folder), task="pose")   # the folder name must end with _openvino_model
+
+
 class PoseEstimator:
     """A class that estimates the pose of a person in a video frame using a YOLO model.
     First identifies the keypoints of the person in the frame, then estimates the motion based on the keypoints.
@@ -48,7 +63,7 @@ class PoseEstimator:
         self.MOTIONS_SMOOTHING = MOTIONS_SMOOTHING  # Smoothing factor for motion estimation
 
         #lightweight pose estimation model
-        self.model = YOLO(str(config.YOLO_MODEL_PATH))
+        self.model = load_pose_model()
     
     def _empty_keypoints(self):
         return np.empty(

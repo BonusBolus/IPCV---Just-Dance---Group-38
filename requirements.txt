@@ -3,4 +3,5 @@ opencv-python
 pymixbox
 scipy
 ultralytics
+openvino
 pygame-ce

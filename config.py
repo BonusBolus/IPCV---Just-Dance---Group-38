@@ -4,6 +4,7 @@ ROOT = Path(__file__).resolve().parent
 POSES_PATH = ROOT / "choreography" / "poses.json"
 SONG_PATH = ROOT / "choreography" / "rasputin.json"
 YOLO_MODEL_PATH = ROOT / "yolo26n-pose.pt"
+USE_OPENVINO = True      # run YOLO with OpenVINO: about 2x faster on the CPU, same model (see pose_processing.py)
 
 HOLD_TIME = 1.5          # seconds to hold "hands up"
 LOST_TIME = 0.5          # seconds not visible before a player is "lost"
