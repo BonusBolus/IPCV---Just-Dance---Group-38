@@ -10,6 +10,7 @@ A state decides WHAT happens; the files in scene/ decide HOW it looks.
 """
 
 from scene import move_cards
+from scene.functions import player_color
 
 PLAYER_IDS = (1, 2)
 
@@ -69,4 +70,5 @@ def draw_move_cards(game, image, t):
         next_progress=song.next_progress(t),
         beat_phase=song.beat_phase(t),
         flash=now_move is not None and t - now_move.start < 0.15,
+        player_colors=tuple(player_color(game.players[i]) for i in PLAYER_IDS),
     )
