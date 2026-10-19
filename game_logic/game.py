@@ -85,10 +85,12 @@ class Game:
 
         image = frame.image.copy()
         faces = faces_future.result()                  # wait for the face thread (usually done already)
-        enlarge_heads(image, faces, config.HEAD_ENLARGEMENT)
-        add_crown(image, faces)
-        # The player label sits on the crown band (on the forehead when there is no crown)
+        # Only faces that belong to a player get effects: no crowns on bystanders or false detections
         self.heads = faces_for_players(self.players, faces)
+        player_faces = [face for face in self.heads.values() if face is not None]
+        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT)
+        add_crown(image, player_faces)
+        # The player label sits on the crown band (on the forehead when there is no crown)
         for player_id, face in self.heads.items():
             if face is not None:
                 add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
