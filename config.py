@@ -16,7 +16,6 @@ GRADE_GRACE = 0.3        # extra seconds to hit a pose after the move ends
 RATING_TIME = 1.0        # how long "Perfect" etc. stays on screen
 DEFAULT_MOVE_BEATS = 2
 HEAD_ENLARGEMENT = 1.35
-CROWN_LEAD = 0.10        # the crown goes to the player whose score is at least 10% higher than the other's
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 4.5
 SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame scores: hold the pose, one lucky frame is not enough
