@@ -4,6 +4,23 @@ import numpy as np
 from scene.functions import RATING_COLORS, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
 from scene.pose_figure import BONES
 
+POP_TIME = 0.18    # seconds: a new rating starts big and shrinks to its normal size ("pop")
+POP_SIZE = 1.6     # how big a rating starts (1.6 = 60% bigger)
+FADE_TIME = 0.3    # seconds at the end: the rating fades out
+SIDE_SWAP_MARGIN = 40   # pixels: the score sides only swap when the players clearly stand the other way round
+RATING_GAP = 70    # pixels between the score bar and a rating (room for the score number)
+
+
+def pop(age, total_time):
+    """Size factor and opacity of a rating that is `age` seconds old and stays `total_time` seconds."""
+    size = 1.0
+    if age < POP_TIME:
+        rest = 1.0 - age / POP_TIME
+        size = 1.0 + (POP_SIZE - 1.0) * rest * rest          # fast at the start, slow at the end
+    alpha = min(1.0, max(0.0, (total_time - age) / FADE_TIME))
+    return size, alpha
+
+
 class Scene:
     def __init__(self, color_key="player_color"):
         self.color_key = color_key
@@ -15,15 +32,34 @@ class Scene:
         self.score_bottom = self.score_top + 16
         self.pose_top = self.score_bottom + 20
         self.pose_bottom = self.pose_top + 20
+        self.sides = None   # player ids from left to right on the screen (score bar and ratings)
+
+    def update_sides(self, players):
+        """Which player stands left and which right, for the score bar and the ratings: player ids
+        from left to right. Uses the middle of each player's box. A player that is not visible keeps
+        their side, and the sides only swap when the players clearly stand the other way round
+        (SIDE_SWAP_MARGIN), so the bar does not flip back and forth. At the start: Player 1 left."""
+        ids = [player["id"] for player in players]
+        if self.sides is None or sorted(self.sides) != sorted(ids):
+            self.sides = ids
+        xs = {player["id"]: player["box"][0] + player["box"][2] / 2
+              for player in players if player["visible"] and player["box"] is not None}
+        if len(xs) == 2:
+            left, right = self.sides
+            if xs[left] - xs[right] > SIDE_SWAP_MARGIN:
+                self.sides = [right, left]
+        return self.sides
 
     def render(self, frame, players, current_pose=None):
         output = frame.copy()
         colors = []
         scores = []
 
-        for player in players:
-            colors.append(player[self.color_key])
-            scores.append(player["score"])
+        # the score bar follows where the players stand: the player on the left has the left part
+        by_id = {player["id"]: player for player in players}
+        for player_id in self.update_sides(players):
+            colors.append(by_id[player_id][self.color_key])
+            scores.append(by_id[player_id]["score"])
 
         output = self.draw_title(output, players, text_height=self.title_height)
         output = self._add_score(output, scores, self.score_top, self.score_bottom, colors)
@@ -91,29 +127,42 @@ class Scene:
             cv2.line(frame, (x, y - size), (x, y + size), color, 1, cv2.LINE_AA)
         return frame
 
-    def draw_ratings(self, frame, ratings, players=None):
-        """"Perfect", "Good", ... under the score bar. ratings: {player_id: "Perfect"}
-
-        Each rating is drawn above the player's OWN place on the screen (the middle of their box),
-        so it is clear whose rating it is, also when Player 1 stands on the right. A player that
-        is not visible gets the fixed side of their score (left for Player 1, right for Player 2)."""
+    def draw_ratings(self, frame, ratings, ages=None, total_time=1.0):
+        """"Perfect", "Good", ... right next to the score bar, on the side of that player's score:
+        the left player's rating left of the bar, the right player's rating right of it (see
+        update_sides(); render() must be called first in the same frame).
+        ratings: {player_id: "Perfect"}
+        ages:    {player_id: seconds since the rating came}: a new rating pops (see pop())."""
         width = frame.shape[1]
-        spots = {}
-        for player_id in ratings:
-            box = players[player_id]["box"] if players and players[player_id]["visible"] else None
-            if box is not None:
-                spots[player_id] = box[0] + box[2] // 2
-            else:
-                spots[player_id] = width // 2 + (-1 if player_id == 1 else 1) * width // 8
-        if len(spots) == 2:                                   # close together: push the texts apart
-            (a, xa), (b, xb) = sorted(spots.items(), key=lambda item: item[1])
-            if xb - xa < 180:
-                middle = (xa + xb) // 2
-                spots[a], spots[b] = middle - 90, middle + 90
+        bar_width = width // 4
+        bar_left, bar_right = width // 2 - bar_width // 2, width // 2 + bar_width // 2
+        y = (self.score_top + self.score_bottom) // 2
+        left_id = (self.sides or sorted(ratings))[0]
         for player_id, rating in ratings.items():
-            x = min(max(spots[player_id], 80), width - 80)    # keep the text on the screen
-            draw_text(frame, rating, (x, self.score_bottom + 35), 1.0, RATING_COLORS[rating])
+            size, alpha = pop(ages[player_id], total_time) if ages and player_id in ages else (1.0, 1.0)
+            text_w = cv2.getTextSize(rating, cv2.FONT_HERSHEY_SIMPLEX, size, 5)[0][0]
+            if player_id == left_id:
+                x = max(bar_left - RATING_GAP - text_w // 2, text_w // 2 + 5)
+            else:
+                x = min(bar_right + RATING_GAP + text_w // 2, width - text_w // 2 - 5)
+            self._draw_fading_text(frame, rating, (x, y), size, RATING_COLORS[rating], alpha)
         return frame
+
+    def _draw_fading_text(self, frame, text, center, size, color, alpha):
+        """draw_text(), but see-through when alpha < 1 (only the part around the text is blended)."""
+        if alpha >= 1.0:
+            draw_text(frame, text, center, size, color)
+            return
+        if alpha <= 0.0:
+            return
+        (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, size, 5)
+        height, width = frame.shape[:2]
+        x0, y0 = max(0, center[0] - text_w // 2 - 8), max(0, center[1] - text_h - 8)
+        x1, y1 = min(width, center[0] + text_w // 2 + 8), min(height, center[1] + text_h + 8)
+        region = frame[y0:y1, x0:x1]
+        layer = region.copy()
+        draw_text(layer, text, (center[0] - x0, center[1] - y0), size, color)
+        region[:] = cv2.addWeighted(layer, alpha, region, 1.0 - alpha, 0)
 
     def draw_player(self, frame, players):
         """Draws keypoints and skeleton bones in the player color, for debugging."""

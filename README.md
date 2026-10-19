@@ -29,15 +29,39 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
 
 1. **Song selection:** raise your **left hand** for the previous song and your **right hand** for the next
    song (hold it for half a second, then lower it again). You hear a preview of the song. Raise **both hands**
-   for 1.5 s to choose it.
+   for 1 s to choose it.
 2. **Registration:** stand in front of the camera, both players. Each player gets a colour and the label
    "Player 1" / "Player 2" on the forehead. Wear different coloured shirts, so the game does not mix you up.
-3. **Raise both hands** (wrists above your nose) and hold them for 1.5 s. The bar above your head fills up.
+3. **Raise both hands** (wrists above your nose) and hold them for 1 s. The bar above your head fills up.
    When both players are ready, the countdown starts.
-4. **Playing:** copy the pose on the **NOW** card. The **NEXT** card shows the coming move. Each move gives
-   points once: Perfect, Good, OK or Miss. Gold moves count double. The player who is at least 10 % ahead wears
-   a gold crown. If you walk out of the image, the game warns you and the song keeps going.
+4. **Playing:** the coming moves slide to the hit line at the bottom; be in the pose when it reaches the line,
+   and copy the pose on the **NOW** card. Between moves the card already shows the **NEXT** move. Each move gives
+   points once: Perfect, Good, OK or Miss, shown next to your score (your score is on your side of the bar).
+   Gold moves count double. The player who is ahead wears a gold crown. If you walk out of the image, the game
+   warns you and the song keeps going.
 5. **Results:** the scores and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
+
+## Make an executable
+
+You can pack the game into one folder with a program, so others can play without installing Python.
+
+1. Make a **separate** Python environment with the **CPU version** of PyTorch. The normal PyTorch is the CUDA
+   version, which adds about 4 GB of NVIDIA libraries that the game does not use (it runs YOLO with OpenVINO).
+   ```
+   python -m venv build-env
+   build-env/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+   build-env/bin/pip install -r requirements.txt pyinstaller
+   ```
+   On Windows use `build-env\Scripts\pip` and `build-env\Scripts\python`.
+2. Build (about 2 minutes):
+   ```
+   build-env/bin/python -m PyInstaller just_dance.spec --noconfirm
+   ```
+3. The game is `dist/JustDance/JustDance` (Windows: `dist\JustDance\JustDance.exe`). It takes the same options
+   as `main.py` (`--debug`, `--windowed`, `--camera 1`, ...). Share the **whole** `dist/JustDance` folder (about 1.5 GB).
+
+PyInstaller makes a program for the system you build on: build on Windows for Windows players. The recipe
+(`just_dance.spec`) packs the YOLO model, its OpenVINO version, the face model and all songs (`.json` + `.ogg`).
 
 ## Project structure
 

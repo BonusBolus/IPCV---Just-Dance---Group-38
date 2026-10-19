@@ -18,8 +18,8 @@ It is written for the whole team. Each step at the end can be picked up by one p
 ```mermaid
 stateDiagram-v2
     [*] --> SongSelect
-    SongSelect --> Registration: someone raises both hands (1.5 s)
-    Registration --> Countdown: both players raise both hands (1.5 s)
+    SongSelect --> Registration: someone raises both hands (1 s)
+    Registration --> Countdown: both players raise both hands (1 s)
     Countdown --> Playing: after 3 seconds
     Playing --> Results: song ends
     Results --> SongSelect: someone raises both hands, or after 20 s
@@ -27,11 +27,11 @@ stateDiagram-v2
 
 | State | What the players see | What the game checks | How to leave |
 |---|---|---|---|
-| **Song selection** | The selected song in a card: title, length, tempo, moves / duets / gold moves, arrows for the hands. A music preview plays | Is someone holding one hand up (browse) or both hands up (choose)? | Both hands up 1.5 s → Registration |
+| **Song selection** | The selected song in a card: title, length, tempo, moves / duets / gold moves, arrows for the hands. A music preview plays | Is someone holding one hand up (browse) or both hands up (choose)? | Both hands up 1 s → Registration |
 | **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the forehead, a progress bar or "READY" above the head | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
-| **Countdown** | Big "3", "2", "1", "Dance!" and the NEXT card with the first move | Only time | After 3 s → Playing (music starts) |
-| **Playing** | The NOW and NEXT move cards, score bar, a pose rating ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
-| **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1.5 s, or 20 s → Song selection |
+| **Countdown** | Big "3", "2", "1", "Dance!" and the timeline: the first move already slides toward the hit line | Only time | After 3 s → Playing (music starts) |
+| **Playing** | The NOW card, the timeline (coming moves slide to a hit line), score bar, a pose rating that pops above each player ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
+| **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1 s, or 20 s → Song selection |
 
 ### Rules for each state
 
@@ -42,17 +42,17 @@ stateDiagram-v2
   `BROWSE_HOLD_TIME` (0.5 s); then lower the hand before the next step. "Left" and "right" come from the side
   of the nose where the wrist is, not from YOLO's names (those are swapped in the mirrored image).
 - The selected song plays a **music preview** from `PREVIEW_START` (30% of the song).
-- **Both hands up** for 1.5 s = choose. `exit()` stops the preview; `game.song` is the chosen song.
+- **Both hands up** for 1 s = choose. `exit()` stops the preview; `game.song` is the chosen song.
 
 **Registration**
 - Comes after the song selection.
 - When we enter this state, we call `tracker.reset()`. This removes old players and old scores.
 - The tracker gives Player 1 and Player 2 to the first two people it sees.
-- A player is **ready** after holding both hands up for 1.5 s. If the player leaves the image, "ready" is removed again.
+- A player is **ready** after holding both hands up for 1 s. If the player leaves the image, "ready" is removed again.
 - Extra help: when `tracker.colors_are_similar()` is True, show "Please wear different colours".
 - The hands-up progress bar is drawn above the player's head (where the crown would be). See [face_tracking.md](face_tracking.md).
 
-**In every state** the game draws big heads and the label "Player 1" / "Player 2" on the forehead. The player who leads by at least 10 % in score also gets a gold crown (the label is then on the crown), plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
+**In every state** the game draws big heads and the label "Player 1" / "Player 2" on the forehead. The player who is ahead in score also gets a gold crown (the label is then on the crown), plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
 
 **Countdown**
 - No grading yet. It gives players time to get into position.
@@ -77,7 +77,7 @@ stateDiagram-v2
 ### Gesture: "hands up"
 
 There is one gesture for the whole game: **both wrists above the nose**.
-To avoid accidental starts, the player must **hold** it for 1.5 s. Show a small progress bar while the player holds it.
+To avoid accidental starts, the player must **hold** it for 1 s. Show a small progress bar while the player holds it.
 The hold time is measured in **seconds**, not in frames. Then it works the same on every computer.
 
 The **q** / **ESC** key still closes the window. This is only a safety exit, not a game control.
