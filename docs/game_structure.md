@@ -17,24 +17,35 @@ It is written for the whole team. Each step at the end can be picked up by one p
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Registration
+    [*] --> SongSelect
+    SongSelect --> Registration: someone raises both hands (1.5 s)
     Registration --> Countdown: both players raise both hands (1.5 s)
     Countdown --> Playing: after 3 seconds
     Playing --> Results: song ends
-    Results --> Registration: someone raises both hands, or after 20 s
+    Results --> SongSelect: someone raises both hands, or after 20 s
 ```
 
 | State | What the players see | What the game checks | How to leave |
 |---|---|---|---|
+| **Song selection** | The selected song in a card: title, length, tempo, moves / duets / gold moves, arrows for the hands. A music preview plays | Is someone holding one hand up (browse) or both hands up (choose)? | Both hands up 1.5 s → Registration |
 | **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the crown, a progress bar or "READY" above the crown | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
 | **Countdown** | Big "3", "2", "1", "Dance!" and the NEXT card with the first move | Only time | After 3 s → Playing (music starts) |
 | **Playing** | The NOW and NEXT move cards, score bar, a pose rating ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
-| **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1.5 s, or 20 s → Registration (new players) |
+| **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1.5 s, or 20 s → Song selection |
 
 ### Rules for each state
 
+**Song selection** (`states/song_select.py`, `scene/song_select_screen.py`)
+- The game **starts** here, and comes back here after Results. Anyone in front of the camera can choose.
+- Every `.json` in `choreography/` (except `poses.json`) is a song, sorted by title. `config.SONG_PATH` is selected first.
+- **Left hand up** (on the left of the screen) = previous song, **right hand up** = next song. Hold it for
+  `BROWSE_HOLD_TIME` (0.5 s); then lower the hand before the next step. "Left" and "right" come from the side
+  of the nose where the wrist is, not from YOLO's names (those are swapped in the mirrored image).
+- The selected song plays a **music preview** from `PREVIEW_START` (30% of the song).
+- **Both hands up** for 1.5 s = choose. `exit()` stops the preview; `game.song` is the chosen song.
+
 **Registration**
-- The game **starts** here, and comes back here after Results.
+- Comes after the song selection.
 - When we enter this state, we call `tracker.reset()`. This removes old players and old scores.
 - The tracker gives Player 1 and Player 2 to the first two people it sees.
 - A player is **ready** after holding both hands up for 1.5 s. If the player leaves the image, "ready" is removed again.
@@ -61,7 +72,7 @@ stateDiagram-v2
 **Results**
 - Show both scores and the winner.
 - Wait at least 3 s before gestures work, so nobody skips the screen by accident.
-- "Raise both hands to play again" → Registration. The next players register again.
+- "Raise both hands to play again" → Song selection. After that, the next players register again.
 
 ### Gesture: "hands up"
 
@@ -83,6 +94,7 @@ game_logic/
     game.py                   # NEW: Game class, runs the loop and switches states
     states/                   # NEW: one file per state
         common.py             #   State base class, "hands up" gesture, move cards helper
+        song_select.py        #   SongSelectState
         registration.py       #   RegistrationState
         countdown.py          #   CountdownState
         playing.py            #   PlayingState (+ the rating)

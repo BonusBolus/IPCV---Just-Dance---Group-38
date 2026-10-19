@@ -16,13 +16,15 @@ We tested it: everything draws **the same pixels** as before.
 | `functions.py` | **The original** text helpers. **New at the end:** colours and small building blocks | all files below |
 | `pose_figure.py` | **New.** Draws a pose as a stick figure | `move_cards.py` |
 | `move_cards.py` | **New.** The NOW and NEXT cards | Countdown, Playing |
+| `song_select_screen.py` | **New.** Everything on the song selection screen | Song selection |
 | `registration_screen.py` | **New.** Everything on the Registration screen | Registration |
 | `results_screen.py` | **New.** Everything on the Results screen | Results |
 
 How the files use each other:
 
 ```
-registration_screen.py ─┐
+song_select_screen.py ──┐
+registration_screen.py ─┤
 results_screen.py ──────┤
 move_cards.py ──────────┼──> functions.py   (colours, text, bars, banners)
 scene.py ───────────────┘
@@ -40,6 +42,7 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 | the progress bar / "READY" above the crown, "Waiting for Player 2..." | `registration_screen.py` |
 | the "Player 1" / "Player 2" labels on the crown, the crown, the big heads | `face_tracking/game_effects.py`, see [face_tracking.md](face_tracking.md) |
 | the glow and sparkles at the screen edges | `scene.py`, `draw_edge_effects()` |
+| the song card, the arrows, "Raise both hands to choose" | `song_select_screen.py` |
 | the scores, the winner text, "Raise both hands to play again" | `results_screen.py` |
 | the title, the score bar, where "Perfect" / "Good" is shown | `scene.py` |
 
@@ -139,6 +142,7 @@ draw_results(frame, players, winner, progress, show_hint)
 
 | State | Calls |
 |---|---|
+| Song selection | `draw_song_select()`, `game.scene.draw_title()` |
 | Registration | `draw_registration()`, `game.scene.draw_title()` |
 | Countdown | `game.scene.render()`, `draw_move_cards()`, `draw_big_text()` |
 | Playing | `game.scene.render()`, `draw_move_cards()`, `game.scene.draw_ratings()`, `draw_banner()`, `draw_big_text()` |
