@@ -1,13 +1,16 @@
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+CHOREOGRAPHY_DIR = ROOT / "choreography"     # every .json here (except poses.json) is a song in the song selection
 POSES_PATH = ROOT / "choreography" / "poses.json"
-SONG_PATH = ROOT / "choreography" / "rasputin.json"
+SONG_PATH = ROOT / "choreography" / "rasputin.json"   # the song that is selected first
 YOLO_MODEL_PATH = ROOT / "yolo26n-pose.pt"
 MAX_FPS = 25             # the game never runs faster than this: less work and heat for the laptop
 USE_OPENVINO = True      # run YOLO with OpenVINO: about 2x faster on the CPU, same model (see pose_processing.py)
 
 HOLD_TIME = 1.5          # seconds to hold "hands up"
+BROWSE_HOLD_TIME = 0.5   # song selection: seconds to hold one hand up to go to the previous / next song
+PREVIEW_START = 0.3      # song selection: the music preview starts at this part of the song (0.3 = 30%)
 LOST_TIME = 0.5          # seconds not visible before a player is "lost"
 COUNTDOWN_TIME = 3.0
 RESULTS_MIN_TIME = 3.0   # gestures do not work before this
@@ -17,7 +20,7 @@ RATING_TIME = 1.0        # how long "Perfect" etc. stays on screen
 DEFAULT_MOVE_BEATS = 2
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"
-SCORE_MULTIPLIER = 4.5
+SCORE_MULTIPLIER = 3 #higher easier 
 SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame scores: hold the pose, one lucky frame is not enough
 DUET_MIN_SCORE = 50 #BOTH PLAYERS 50 points out of 100 for bonus to count
 DUET_BONUS = 0.25 #%

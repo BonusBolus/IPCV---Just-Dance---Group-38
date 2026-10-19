@@ -1,4 +1,4 @@
-"""Results: scores and winner. Raise both hands (or wait) to play again with new players."""
+"""Results: scores and winner. Raise both hands (or wait) to go back to the song selection."""
 import config
 from game_logic.states.common import HoldGesture, State, anyone_hands_up
 from scene.results_screen import draw_results
@@ -15,11 +15,11 @@ class ResultsState(State):
     def update(self, game):
         waited = game.now - self.start
         if waited >= config.RESULTS_MAX_TIME:
-            return "registration"
+            return "song_select"
         if waited < config.RESULTS_MIN_TIME:
             return None                                  # nobody skips the results by accident
         if self.gesture.update(anyone_hands_up(game), game.now):
-            return "registration"
+            return "song_select"
         return None
 
     def draw(self, game, image):

@@ -1,11 +1,12 @@
 """Parts that more than one state uses.
 
-Every state has three methods, called by Game (game_logic/game.py):
+Every state has these methods, called by Game (game_logic/game.py):
     enter(game)          once, when the game switches to this state
     update(game)         every frame; returns the name of the next state, or None to stay
     draw(game, image)    every frame; returns the image to show
+    exit(game)           once, when the game leaves this state (also with the debug key n)
 
-Flow:  registration -> countdown -> playing -> results -> registration
+Flow:  song_select -> registration -> countdown -> playing -> results -> song_select
 A state decides WHAT happens; the files in scene/ decide HOW it looks.
 """
 
@@ -25,6 +26,9 @@ class State:
     def draw(self, game, image):
         return image
 
+    def exit(self, game):
+        pass
+
 
 def hands_up(player):
     """True if both wrists are above the nose. In the image, "above" means a smaller y."""
@@ -33,6 +37,25 @@ def hands_up(player):
     if nose is None or left is None or right is None:
         return False
     return left[1] < nose[1] and right[1] < nose[1]
+
+
+def raised_hands(player):
+    """Which hands are up (above the nose): "both", "left", "right" or None.
+
+    "left" and "right" are the sides of the SCREEN. The camera image is mirrored, so a player's
+    own left hand is on the left of the screen. We look at which side of the nose the wrist is,
+    not at YOLO's names: in the mirrored image YOLO calls the left hand right_wrist."""
+    points = player["keypoints"]
+    nose = points["nose"]
+    if nose is None:
+        return None
+    up = [wrist for wrist in (points["left_wrist"], points["right_wrist"])
+          if wrist is not None and wrist[1] < nose[1]]
+    if len(up) == 2:
+        return "both"
+    if len(up) == 1:
+        return "left" if up[0][0] < nose[0] else "right"
+    return None
 
 
 class HoldGesture:
