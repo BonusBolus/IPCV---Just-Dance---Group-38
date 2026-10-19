@@ -10,7 +10,8 @@ Flow:  song_select -> registration -> countdown -> playing -> results -> song_se
 A state decides WHAT happens; the files in scene/ decide HOW it looks.
 """
 
-from scene import move_cards
+import config
+from scene import move_cards, timeline
 from scene.functions import player_color
 
 PLAYER_IDS = (1, 2)
@@ -37,6 +38,15 @@ def hands_up(player):
     if nose is None or left is None or right is None:
         return False
     return left[1] < nose[1] and right[1] < nose[1]
+
+
+def full_body_visible(player):
+    """True if the camera sees the whole player: the nose and at least one ankle.
+
+    The tracker only keeps keypoints the model is sure about (confidence 0.5), so a guessed
+    ankle (legs out of the image) does not count. The grading works best with the whole body."""
+    points = player["keypoints"]
+    return points["nose"] is not None and (points["left_ankle"] is not None or points["right_ankle"] is not None)
 
 
 def raised_hands(player):
@@ -82,9 +92,13 @@ def anyone_hands_up(game):
     return any(player["visible"] and hands_up(player) for player in game.players.values())
 
 def draw_move_cards(game, image, t):
-    """The NOW and NEXT cards, used in the countdown and while playing."""
+    """The NOW and NEXT cards (or the NOW card and the timeline), used in the countdown and while playing.
+    t is the song time; during the countdown it is negative, so the timeline already moves."""
     song = game.song
     now_move = song.current_move(t)
+    colors = tuple(player_color(game.players[i]) for i in PLAYER_IDS)
+    if config.SHOW_TIMELINE:
+        image = timeline.draw_timeline(image, song.moves, t, song.beat_phase(t), colors)
     return move_cards.draw_move_cards(
         image,
         now_move=now_move,
@@ -93,5 +107,6 @@ def draw_move_cards(game, image, t):
         next_progress=song.next_progress(t),
         beat_phase=song.beat_phase(t),
         flash=now_move is not None and t - now_move.start < 0.15,
-        player_colors=tuple(player_color(game.players[i]) for i in PLAYER_IDS),
+        player_colors=colors,
+        show_next=not config.SHOW_TIMELINE,
     )

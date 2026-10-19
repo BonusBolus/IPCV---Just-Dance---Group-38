@@ -6,12 +6,16 @@ from scene.functions import GREEN, draw_banner, draw_bar, draw_text, player_colo
 TOP_MARGIN = 140
 
 
-def draw_registration(frame, players, heads, ready, progress, colors_similar):
+HINT = (0, 165, 255)   # orange (BGR)
+
+
+def draw_registration(frame, players, heads, ready, progress, colors_similar, full_body=None):
     """players:     dict from the IdentityTracker, {1: {...}, 2: {...}}
     heads:          {1: face or None, ...}: the face of each player (game_effects.faces_for_players)
     ready:          {1: True, 2: False}: did the player finish the hands-up gesture?
     progress:       {1: 0.4, 2: 0.0}: how far the hands-up gesture is (0..1)
-    colors_similar: True if the shirts look the same (then the tracker can mix up the players)"""
+    colors_similar: True if the shirts look the same (then the tracker can mix up the players)
+    full_body:      {1: True, 2: False}: does the camera see the whole player? If not: "Step back" """
     height, width = frame.shape[:2]
     for player_id, player in players.items():
         color = player_color(player)
@@ -39,6 +43,9 @@ def draw_registration(frame, players, heads, ready, progress, colors_similar):
             draw_text(frame, "READY", (center_x, bar_y + 7), 0.9, GREEN)
         else:
             draw_bar(frame, (center_x - bar_width // 2, bar_y), (bar_width, 14), progress[player_id], color)
+        if full_body is not None and not full_body.get(player_id, True):
+            hint_x = min(max(center_x, 150), width - 150)      # keep the hint on the screen
+            draw_text(frame, "Step back - show your feet", (hint_x, bar_y + 42), 0.7, HINT)
 
     if colors_similar:
         draw_banner(frame, "Please wear different colours", (0, 0, 160))

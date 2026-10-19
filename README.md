@@ -29,10 +29,10 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
 
 1. **Song selection:** raise your **left hand** for the previous song and your **right hand** for the next
    song (hold it for half a second, then lower it again). You hear a preview of the song. Raise **both hands**
-   for 1.5 s to choose it.
+   for 1 s to choose it.
 2. **Registration:** stand in front of the camera, both players. Each player gets a colour and the label
    "Player 1" / "Player 2" on the forehead. Wear different coloured shirts, so the game does not mix you up.
-3. **Raise both hands** (wrists above your nose) and hold them for 1.5 s. The bar above your head fills up.
+3. **Raise both hands** (wrists above your nose) and hold them for 1 s. The bar above your head fills up.
    When both players are ready, the countdown starts.
 4. **Playing:** copy the pose on the **NOW** card. The **NEXT** card shows the coming move. Each move gives
    points once: Perfect, Good, OK or Miss. Gold moves count double. The player who is at least 10 % ahead wears

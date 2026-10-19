@@ -1,6 +1,6 @@
 """Registration: the game starts here. The tracker finds 2 players, and both raise their hands when ready."""
 import config
-from game_logic.states.common import PLAYER_IDS, HoldGesture, State, hands_up
+from game_logic.states.common import full_body_visible, hands_up, HoldGesture, PLAYER_IDS, State
 from scene.registration_screen import draw_registration
 
 
@@ -29,6 +29,7 @@ class RegistrationState(State):
 
     def draw(self, game, image):
         progress = {i: self.gestures[i].progress for i in PLAYER_IDS}
+        full_body = {i: full_body_visible(game.players[i]) for i in PLAYER_IDS}
         image = draw_registration(image, game.players, game.heads, self.ready, progress,
-                                  game.tracker.colors_are_similar())
+                                  game.tracker.colors_are_similar(), full_body)
         return game.scene.draw_title(image, list(game.players.values()), "Raise both hands when you are ready")

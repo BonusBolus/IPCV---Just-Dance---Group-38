@@ -13,10 +13,11 @@ from scene.pose_figure import draw_pose
 
 
 def draw_move_cards(frame, now_move, now_progress, next_move, next_progress, beat_phase, flash,
-                    player_colors=(WHITE, WHITE)):
+                    player_colors=(WHITE, WHITE), show_next=True):
     """now_progress / next_progress: 0..1, beat_phase: 0 on the beat (all from song.py)."""
     height, width = frame.shape[:2]
-    now_box = (width - 425, height - 310, 230, 290)
+    # without the NEXT card (the timeline shows the coming moves), the NOW card is at the right edge
+    now_box = (width - 425, height - 310, 230, 290) if show_next else (width - 250, height - 310, 230, 290)
     next_box = (width - 180, height - 230, 160, 210)
 
     if now_move is None:
@@ -30,7 +31,7 @@ def draw_move_cards(frame, now_move, now_progress, next_move, next_progress, bea
                   flash=flash, pose2=now_move.pose2 if now_move.players == 2 else None,
                   player_colors=player_colors)
 
-    if next_move is not None:
+    if show_next and next_move is not None:
         label = "NEXT  GOLD" if next_move.gold else "NEXT"
         if next_move.players == 2:
             label += "  DUET"

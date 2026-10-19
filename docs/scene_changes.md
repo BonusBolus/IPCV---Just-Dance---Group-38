@@ -15,7 +15,8 @@ We tested it: everything draws **the same pixels** as before.
 | `scene.py` | **The original** `Scene` class: title, score bar, current pose, `draw_player()`. **New:** `draw_ratings()`, `draw_title()`, `draw_edge_effects()` | all states |
 | `functions.py` | **The original** text helpers. **New at the end:** colours and small building blocks | all files below |
 | `pose_figure.py` | **New.** Draws a pose as a stick figure | `move_cards.py` |
-| `move_cards.py` | **New.** The NOW and NEXT cards | Countdown, Playing |
+| `move_cards.py` | **New.** The NOW and NEXT cards (with the timeline on: only NOW, at the right edge) | Countdown, Playing |
+| `timeline.py` | **New.** The coming moves slide from the right to a hit line at the bottom; the bar is the hold time. `SHOW_TIMELINE` in `config.py` | Countdown, Playing |
 | `song_select_screen.py` | **New.** Everything on the song selection screen | Song selection |
 | `registration_screen.py` | **New.** Everything on the Registration screen | Registration |
 | `results_screen.py` | **New.** Everything on the Results screen | Results |
@@ -39,6 +40,9 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 | the text outline, the progress bars, the red warning banner | `functions.py` |
 | how a pose looks (lines, head, thickness) | `pose_figure.py` |
 | the size or place of the NOW / NEXT cards, the pulse, the flash | `move_cards.py` |
+| the timeline: track size, hit line, how many seconds ahead (`LOOKAHEAD`) | `timeline.py` |
+| the "pop" of the ratings (`POP_TIME`, `POP_SIZE`, `FADE_TIME`) | `scene.py`, `pop()` |
+| the "Step back - show your feet" hint | `registration_screen.py` |
 | the progress bar / "READY" above the head, "Waiting for Player 2..." | `registration_screen.py` |
 | the "Player 1" / "Player 2" labels on the crown, the crown, the big heads | `face_tracking/game_effects.py`, see [face_tracking.md](face_tracking.md) |
 | the glow and sparkles at the screen edges | `scene.py`, `draw_edge_effects()` |

@@ -4,6 +4,21 @@ import numpy as np
 from scene.functions import RATING_COLORS, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
 from scene.pose_figure import BONES
 
+POP_TIME = 0.18    # seconds: a new rating starts big and shrinks to its normal size ("pop")
+POP_SIZE = 1.6     # how big a rating starts (1.6 = 60% bigger)
+FADE_TIME = 0.3    # seconds at the end: the rating fades out
+
+
+def pop(age, total_time):
+    """Size factor and opacity of a rating that is `age` seconds old and stays `total_time` seconds."""
+    size = 1.0
+    if age < POP_TIME:
+        rest = 1.0 - age / POP_TIME
+        size = 1.0 + (POP_SIZE - 1.0) * rest * rest          # fast at the start, slow at the end
+    alpha = min(1.0, max(0.0, (total_time - age) / FADE_TIME))
+    return size, alpha
+
+
 class Scene:
     def __init__(self, color_key="player_color"):
         self.color_key = color_key
@@ -91,12 +106,13 @@ class Scene:
             cv2.line(frame, (x, y - size), (x, y + size), color, 1, cv2.LINE_AA)
         return frame
 
-    def draw_ratings(self, frame, ratings, players=None):
+    def draw_ratings(self, frame, ratings, players=None, ages=None, total_time=1.0):
         """"Perfect", "Good", ... under the score bar. ratings: {player_id: "Perfect"}
 
         Each rating is drawn above the player's OWN place on the screen (the middle of their box),
         so it is clear whose rating it is, also when Player 1 stands on the right. A player that
-        is not visible gets the fixed side of their score (left for Player 1, right for Player 2)."""
+        is not visible gets the fixed side of their score (left for Player 1, right for Player 2).
+        ages: {player_id: seconds since the rating came}: a new rating pops (see pop())."""
         width = frame.shape[1]
         spots = {}
         for player_id in ratings:
@@ -112,8 +128,25 @@ class Scene:
                 spots[a], spots[b] = middle - 90, middle + 90
         for player_id, rating in ratings.items():
             x = min(max(spots[player_id], 80), width - 80)    # keep the text on the screen
-            draw_text(frame, rating, (x, self.score_bottom + 35), 1.0, RATING_COLORS[rating])
+            size, alpha = pop(ages[player_id], total_time) if ages and player_id in ages else (1.0, 1.0)
+            self._draw_fading_text(frame, rating, (x, self.score_bottom + 35), size, RATING_COLORS[rating], alpha)
         return frame
+
+    def _draw_fading_text(self, frame, text, center, size, color, alpha):
+        """draw_text(), but see-through when alpha < 1 (only the part around the text is blended)."""
+        if alpha >= 1.0:
+            draw_text(frame, text, center, size, color)
+            return
+        if alpha <= 0.0:
+            return
+        (text_w, text_h), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, size, 5)
+        height, width = frame.shape[:2]
+        x0, y0 = max(0, center[0] - text_w // 2 - 8), max(0, center[1] - text_h - 8)
+        x1, y1 = min(width, center[0] + text_w // 2 + 8), min(height, center[1] + text_h + 8)
+        region = frame[y0:y1, x0:x1]
+        layer = region.copy()
+        draw_text(layer, text, (center[0] - x0, center[1] - y0), size, color)
+        region[:] = cv2.addWeighted(layer, alpha, region, 1.0 - alpha, 0)
 
     def draw_player(self, frame, players):
         """Draws keypoints and skeleton bones in the player color, for debugging."""
