@@ -2,7 +2,7 @@
 
 Computer vision assignment: a Just Dance game for **2 players**, controlled only with the camera.
 The game finds both players (YOLO pose), keeps track of who is who (shirt colour), grades their pose
-against the move on screen, and adds fun head effects (big heads, a crown with the player name).
+against the move on screen, and adds fun head effects (big heads, the player name on the forehead, and a crown for the player who is ahead).
 
 ## Install
 
@@ -27,13 +27,13 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
 
 ## How to play
 
-1. **Registration:** stand in front of the camera, both players. Each player gets a colour and a crown with
-   "Player 1" / "Player 2". Wear different coloured shirts, so the game does not mix you up.
-2. **Raise both hands** (wrists above your nose) and hold them for 1.5 s. The bar above your crown fills up.
+1. **Registration:** stand in front of the camera, both players. Each player gets a colour and the label
+   "Player 1" / "Player 2" on the forehead. Wear different coloured shirts, so the game does not mix you up.
+2. **Raise both hands** (wrists above your nose) and hold them for 1.5 s. The bar above your head fills up.
    When both players are ready, the countdown starts.
 3. **Playing:** copy the pose on the **NOW** card. The **NEXT** card shows the coming move. Each move gives
-   points once: Perfect, Good, OK or Miss. Gold moves count double. If you walk out of the image, the game
-   warns you and the song keeps going.
+   points once: Perfect, Good, OK or Miss. Gold moves count double. The player who is at least 10 % ahead wears
+   a gold crown. If you walk out of the image, the game warns you and the song keeps going.
 4. **Results:** the scores and the winner. Raise both hands to play again (or wait 20 s).
 
 ## Project structure

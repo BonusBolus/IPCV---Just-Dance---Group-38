@@ -1,7 +1,8 @@
 # Face tracking and head effects
 
 Every frame, the game finds the faces in the camera image and uses them for three effects:
-**big heads**, a **gold crown** and the **player label** ("Player 1", "Player 2") on that crown.
+**big heads**, a **gold crown** for the player who is ahead, and the **player label** ("Player 1", "Player 2") on
+the forehead (on the crown, when that player has it).
 This file explains how that works and where to change it.
 
 ## The files
@@ -23,9 +24,10 @@ camera image
    └──► main thread:  pose (YOLO) ──► IdentityTracker ──► players ──► state.update()
 
 image = copy of the camera image
-enlarge_heads(image, faces)                       # 1. big heads
-add_crown(image, faces)                           # 2. crown on every face
-game.heads = faces_for_players(players, faces)    # 3. which face belongs to which player
+game.heads = faces_for_players(players, faces)    # 1. which face belongs to which player
+player_faces = faces in game.heads that are not None
+enlarge_heads(image, player_faces)                # 2. big heads, only for players
+add_crown(image, [face of crown_holder()])        # 3. crown, only for the player who leads by 10 %
 add_player_label(image, "Player N", face, colour) # 4. label on the crown, for every player with a face
 scene.draw_edge_effects(...)                      # glow + sparkles at the screen edges
 state.draw(game, image)                           # the screen of the current state (uses game.heads)
@@ -71,7 +73,14 @@ fades out (feathering), so you do not see a hard border. The amount is `HEAD_ENL
 
 ## 3. The crown: `add_crown()`
 
-The crown is drawn on **every face**, sized from the face and tilted with the head. Its shape is set by constants at
+**Who gets the crown:** only the player whose score is **at least 10 % higher** than the other player's score
+(`crown_holder()` in `game_logic/game.py`, the 10 % is `CROWN_LEAD` in `config.py`). So:
+
+- both scores 0 (Registration, Countdown, the start of the song): **nobody** has the crown;
+- scores close together (for example 500 and 460): **nobody** has the crown;
+- player 1 has 0 points and player 2 has some: player 2 has the crown.
+
+The crown goes to the leader's face (see section 4), sized from the face and tilted with the head. Its shape is set by constants at
 the top of `game_effects.py`:
 
 | Constant | Meaning | Value |
@@ -106,7 +115,12 @@ legs, so the label floated around. Now it hangs on the **face**, which is much c
 3. Each face goes to **at most one** player.
 
 It returns `{1: face or None, 2: face or None}`. `Game` keeps it in `game.heads`, so the states can use it too.
-Faces that belong to nobody (for example a third person) get a crown, but no label.
+Faces that belong to nobody get **no effects at all**: no big head, no crown, no label. This filters out:
+
+- **bystanders**: a third person, or someone in the background, is not a player;
+- **false detections**: YuNet sometimes sees a "face" in a pattern, a shadow or an object. Such a face is almost never
+  inside a player's box, near the nose that YOLO found. Without this filter, the smoothing even kept such a face on
+  screen for up to 5 frames.
 
 **The label** (`add_player_label(frame, text, face, colour)`):
 
@@ -134,6 +148,8 @@ back to the top of the player's box, so the player still sees them.
 | which faces are found (small or unclear faces) | `SCORE_THRESHOLD` in `face_tracking.py` |
 | the crown size, place or shape | the `CROWN_*`, `BAND_*`, `TIP_TOP` constants in `game_effects.py` |
 | the crown colours | `add_crown()` |
+| how far ahead a player must be for the crown | `CROWN_LEAD` in `config.py` |
+| who gets the crown (the rule itself) | `crown_holder()` in `game_logic/game.py` |
 | the label text size or outline | `add_player_label()` |
 | the progress bar / "READY" above the crown | `scene/registration_screen.py` |
 | which player gets which face | `faces_for_players()` |
