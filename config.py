@@ -21,7 +21,7 @@ DEFAULT_MOVE_BEATS = 2
 HEAD_ENLARGEMENT = 1.35
 CROWN_LEAD = 0.10        # the crown goes to the player whose score is at least 10% higher than the other's
 PLAYER_COLOR = "player_color"
-SCORE_MULTIPLIER = 4.5
+SCORE_MULTIPLIER = 3 #higher easier 
 SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame scores: hold the pose, one lucky frame is not enough
 DUET_MIN_SCORE = 50 #BOTH PLAYERS 50 points out of 100 for bonus to count
 DUET_BONUS = 0.25 #%
