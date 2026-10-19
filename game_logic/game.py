@@ -12,11 +12,12 @@ from face_tracking.face_tracking import get_face_properties, smooth_face_propert
 from face_tracking.head_filter import enlarge_heads
 from face_tracking.game_effects import add_crown, add_player_label, faces_for_players
 from game_logic.pose_grading import PoseGrader
-from game_logic.song import Song
+from game_logic.song import find_songs
 from game_logic.states.countdown import CountdownState
 from game_logic.states.playing import PlayingState
 from game_logic.states.registration import RegistrationState
 from game_logic.states.results import ResultsState
+from game_logic.states.song_select import SongSelectState
 from identity_tracking.identity import IdentityTracker, draw_labels, people_from_pose
 from pose_tracking.pose_processing import PoseEstimator
 from scene.functions import player_color
@@ -44,8 +45,8 @@ def crown_holder(players):
 
 
 # Only used by the debug key "n": jump to the next state
-NEXT_STATE = {"registration": "countdown", "countdown": "playing",
-              "playing": "results", "results": "registration"}
+NEXT_STATE = {"song_select": "registration", "registration": "countdown", "countdown": "playing",
+              "playing": "results", "results": "song_select"}
 
 
 class Game:
@@ -56,14 +57,19 @@ class Game:
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
-        self.song = Song(config.SONG_PATH)
-        ungraded = sorted({move.key for move in self.song.moves} - set(self.pose_grader.processed_poses))
-        if ungraded:
-            print(f"Warning: the PoseGrader has no pose {', '.join(ungraded)}, these moves give no points")
+        self.songs = find_songs()                      # all songs, for the song selection
+        first = [i for i, song in enumerate(self.songs) if song.path.resolve() == config.SONG_PATH.resolve()]
+        self.song_index = first[0] if first else 0
+        self.song = self.songs[self.song_index]        # the selected song
+        for song in self.songs:
+            ungraded = sorted({move.key for move in song.moves} - set(self.pose_grader.processed_poses))
+            if ungraded:
+                print(f"Warning: {song.path.name}: the PoseGrader has no pose {', '.join(ungraded)}, these moves give no points")
         self.scene = Scene(color_key=config.PLAYER_COLOR)
         self.fps = FPSCounter()
         self.face_thread = ThreadPoolExecutor(max_workers=1)   # one worker: frames stay in order
         self.states = {
+            "song_select": SongSelectState(),
             "registration": RegistrationState(),
             "countdown": CountdownState(),
             "playing": PlayingState(),
@@ -76,6 +82,8 @@ class Game:
         self.state = None
 
     def change_state(self, name):
+        if self.state is not None:
+            self.state.exit(self)
         self.state_name = name
         self.state = self.states[name]
         self.state.enter(self)
@@ -84,7 +92,7 @@ class Game:
         """Everything that happens with one camera frame. Returns the image to show."""
         self.now = frame.time
         if self.state is None:
-            self.change_state("registration")
+            self.change_state("song_select")
 
         faces_future = self.face_thread.submit(find_faces, frame.image)    # starts now, in the second thread
         keypoints, _ = self.pose_estimator.process(frame.image)
