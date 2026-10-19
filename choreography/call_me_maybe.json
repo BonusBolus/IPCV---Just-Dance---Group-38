@@ -2,6 +2,7 @@
     "title": "Call Me Maybe",
     "audio": "call_me_maybe.ogg",
     "bpm": 120,
+    "move_bpm": 360,
     "offset": 0.0,
     "moves": [
         { "beat": 8, "pose": "phone_call", "beats": 4 },

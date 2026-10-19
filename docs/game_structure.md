@@ -7,7 +7,7 @@ It is written for the whole team. Each step at the end can be picked up by one p
 
 - The game has clear **states**: Registration, Countdown, Playing, Results. There is no main menu: the game starts in Registration.
 - Players control the game with **gestures only** (no keyboard, no mouse).
-- The game is always for **2 players**.
+- The game is for **1 to 5 players** (`MAX_PLAYERS`, `MIN_PLAYERS` in `config.py`). 2 is the normal game.
 - **One song with audio.** The poses follow the music.
 - When a player is **lost** during the song, the game shows a warning. The song keeps playing.
 - The score is **fair**: a faster computer does not give more points.
@@ -19,7 +19,7 @@ It is written for the whole team. Each step at the end can be picked up by one p
 stateDiagram-v2
     [*] --> SongSelect
     SongSelect --> Registration: someone raises both hands (1 s)
-    Registration --> Countdown: both players raise both hands (1 s)
+    Registration --> Countdown: everyone who stepped in raises both hands (1 s)
     Countdown --> Playing: after 3 seconds
     Playing --> Results: song ends
     Results --> SongSelect: someone raises both hands, or after 20 s
@@ -28,10 +28,10 @@ stateDiagram-v2
 | State | What the players see | What the game checks | How to leave |
 |---|---|---|---|
 | **Song selection** | The selected song in a card: title, length, tempo, moves / duets / gold moves, arrows for the hands. A music preview plays | Is someone holding one hand up (browse) or both hands up (choose)? | Both hands up 1 s → Registration |
-| **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the forehead, a progress bar or "READY" above the head | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
+| **Registration** | Camera image, "Player 1", "Player 2", ... labels in their colour on the forehead, a progress bar or "READY" above the head | Who stepped in? Is each player holding hands up? | Everyone ready (at least `MIN_PLAYERS`) → Countdown |
 | **Countdown** | Big "3", "2", "1", "Dance!" and the timeline: the first move already slides toward the hit line | Only time | After 3 s → Playing (music starts) |
-| **Playing** | The NOW card, the timeline (coming moves slide to a hit line), score bar, a pose rating that pops above each player ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
-| **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1 s, or 20 s → Song selection |
+| **Playing** | The NOW card, the timeline (coming moves slide to a hit line), the score bar (2 players) or a row of score boxes (1 or 3-5 players), a pose rating that pops next to each score ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
+| **Results** | A ranking, the winner (or "Draw") | Hands up, or time | Hands up 1 s, or 20 s → Song selection |
 
 ### Rules for each state
 
@@ -47,7 +47,8 @@ stateDiagram-v2
 **Registration**
 - Comes after the song selection.
 - When we enter this state, we call `tracker.reset()`. This removes old players and old scores.
-- The tracker gives Player 1 and Player 2 to the first two people it sees.
+- The tracker gives Player 1, 2, ... to the first people it sees (up to `MAX_PLAYERS`).
+- The game starts when everyone who registered is ready. A player who is gone for `DROP_TIME` (3 s) is not waited for.
 - A player is **ready** after holding both hands up for 1 s. If the player leaves the image, "ready" is removed again.
 - Extra help: when `tracker.colors_are_similar()` is True, show "Please wear different colours".
 - The hands-up progress bar is drawn above the player's head (where the crown would be). See [face_tracking.md](face_tracking.md).
@@ -70,7 +71,7 @@ stateDiagram-v2
   - We wait 0.5 s before showing the warning, so it does not flicker when the tracker misses one frame.
 
 **Results**
-- Show both scores and the winner.
+- Show a ranking of all players (the same score = the same place) and the winner, or "Draw" when the best score is shared.
 - Wait at least 3 s before gestures work, so nobody skips the screen by accident.
 - "Raise both hands to play again" → Song selection. After that, the next players register again.
 
@@ -177,7 +178,7 @@ class Game:
     def __init__(self, camera):
         self.camera = camera
         self.pose_estimator = PoseEstimator(...)
-        self.tracker = IdentityTracker(max_players=2)
+        self.tracker = IdentityTracker(max_players=config.MAX_PLAYERS)
         self.pose_grader = PoseGrader()
         self.song = Song(config.SONG_PATH)
         self.scene = Scene()
@@ -247,13 +248,18 @@ The frame-by-frame recording `choreography.json` (from branch `test-structure`) 
 |---|---|
 | `audio` | Music file, in the same folder as the song file |
 | `bpm` | Beats per minute of the music |
+| `move_bpm` | Optional. The tempo of the **moves**: higher means shorter moves that come more often. `bpm` stays the tempo of the music (the beat pulse and the song selection). Default: the same as `bpm`. A multiple of `bpm` (for example 2 × 132 = 264) keeps the moves on the beat of the music. |
 | `offset` | Seconds of music before beat 0 |
 | `beat` | The beat where the player must **be in** the pose. The move becomes active here. |
 | `pose` | Name of a pose in `poses.json` |
 | `beats` | How long the player must hold the pose. Default: 2. |
 | `gold` | Optional. `true` = double points. |
 
-Beat to seconds: `seconds = offset + beat * 60 / bpm`.
+Beat to seconds: `seconds = offset + beat * 60 / bpm` (with `move_bpm` instead of `bpm` when the song has it).
+
+**The moves start again** when the music is longer than the moves: after the last move, the first move comes
+again one normal step later (the usual time between two moves), and so on until the music ends. The game reads
+the length of the music from the `.ogg` file.
 Because we use beats, all moves stay on the music. If the music starts a bit late, we only change `offset`.
 
 **Test music:** branch `test-structure` has `assets/song.wav`. A script made this file, so there is no copyright problem. It is 120 BPM and 64 s, the same as `song_1`. It is in the repo as `choreography/song_1.ogg`. All music is stored as `.ogg` (Ogg Vorbis): about 8x smaller than `.wav`, with the same length and timing. `choreography/*.wav` is in `.gitignore`.

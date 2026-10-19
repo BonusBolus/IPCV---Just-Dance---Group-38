@@ -2,6 +2,7 @@
     "title": "Rasputin",
     "audio": "rasputin.ogg",
     "bpm": 127,
+    "move_bpm": 381,
     "offset": 0.0,
     "moves": [
         { "beat": 8, "pose": "wave_right", "beats": 4 },

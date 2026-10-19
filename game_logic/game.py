@@ -34,14 +34,12 @@ def find_faces(image):
 
 
 def crown_holder(players):
-    """Id of the player who leads by at least config.CROWN_LEAD (10%), or None.
-    Nobody gets the crown while both scores are 0 (for example during Registration)."""
-    (id_1, player_1), (id_2, player_2) = sorted(players.items())
-    if player_1["score"] > player_2["score"]:
-        return id_1
-    if player_2["score"] > player_1["score"]:
-        return id_2
-    return None
+    """Id of the player with the highest score, or None when the best score is shared or 0
+    (nobody gets the crown while all scores are 0, for example during Registration)."""
+    scores = sorted(((player["score"], player_id) for player_id, player in players.items()), reverse=True)
+    if not scores or scores[0][0] <= 0 or (len(scores) > 1 and scores[1][0] == scores[0][0]):
+        return None
+    return scores[0][1]
 
 
 # Only used by the debug key "n": jump to the next state
@@ -55,7 +53,7 @@ class Game:
         self.debug = debug
         self.fullscreen = fullscreen
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
-        self.tracker = IdentityTracker(max_players=2)
+        self.tracker = IdentityTracker(max_players=config.MAX_PLAYERS)
         self.pose_grader = PoseGrader()
         self.songs = find_songs()                      # all songs, for the song selection
         first = [i for i, song in enumerate(self.songs) if song.path.resolve() == config.SONG_PATH.resolve()]

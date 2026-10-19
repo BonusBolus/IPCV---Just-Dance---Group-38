@@ -1,7 +1,7 @@
 # IPCV - Just Dance - Group 38
 
-Computer vision assignment: a Just Dance game for **2 players**, controlled only with the camera.
-The game finds both players (YOLO pose), keeps track of who is who (shirt colour), grades their pose
+Computer vision assignment: a Just Dance game for **1 to 5 players** (normally 2), controlled only with the camera.
+The game finds all players (YOLO pose), keeps track of who is who (shirt colour), grades their pose
 against the move on screen, and adds fun head effects (big heads, the player name on the forehead, and a crown for the player who is ahead).
 
 ## Install
@@ -30,16 +30,21 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
 1. **Song selection:** raise your **left hand** for the previous song and your **right hand** for the next
    song (hold it for half a second, then lower it again). You hear a preview of the song. Raise **both hands**
    for 1 s to choose it.
-2. **Registration:** stand in front of the camera, both players. Each player gets a colour and the label
-   "Player 1" / "Player 2" on the forehead. Wear different coloured shirts, so the game does not mix you up.
+2. **Registration:** stand in front of the camera, 1 to 5 players. Each player gets a colour and the label
+   "Player 1", "Player 2", ... on the forehead. Wear different coloured shirts, so the game does not mix you up.
 3. **Raise both hands** (wrists above your nose) and hold them for 1 s. The bar above your head fills up.
-   When both players are ready, the countdown starts.
+   When everyone who stepped in is ready, the countdown starts. Someone who walked away for 3 s is not waited for.
 4. **Playing:** the coming moves slide to the hit line at the bottom; be in the pose when it reaches the line,
    and copy the pose on the **NOW** card. Between moves the card already shows the **NEXT** move. Each move gives
-   points once: Perfect, Good, OK or Miss, shown next to your score (your score is on your side of the bar).
-   Gold moves count double. The player who is ahead wears a gold crown. If you walk out of the image, the game
+   points once: Perfect, Good, OK or Miss, shown next to your score. With 2 players the score bar has your score on
+   your side; with 1 or 3-5 players there is a row of score boxes at the top, in the order you stand.
+   Gold moves count double. Duets: neighbours do them together (from left to right 1st+2nd, 3rd+4th); a 5th player
+   does the left part alone, without the duet bonus. The player who is ahead wears a gold crown. If you walk out of the image, the game
    warns you and the song keeps going.
-5. **Results:** the scores and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
+5. **Results:** a ranking (1st, 2nd, ...) and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
+
+The number of players is a setting in `config.py`: `MAX_PLAYERS` (5) and `MIN_PLAYERS` (1).
+See `docs/five_players.md` for what to keep in mind with many players (room, camera, shirt colours).
 
 ## Make an executable
 
@@ -72,7 +77,7 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | `camera.py` | Webcam / video input (mirrored, always the newest image) and the FPS counter |
 | `game_logic/` | `game.py` runs the loop; `states/` has one file per game state; `song.py` the music and moves; `pose_grading.py` the score of a pose |
 | `pose_tracking/` | YOLO pose estimation: the keypoints of every person |
-| `identity_tracking/` | Which person is Player 1 and which is Player 2 (shirt colour + position) |
+| `identity_tracking/` | Which person is which player (shirt colour + position) |
 | `face_tracking/` | Finds the faces; big heads, the crown and the player label |
 | `scene/` | Draws the screens: title, scores, move cards, song selection, registration and results |
 | `choreography/` | `poses.json` (all poses), one `.json` per song (the moves on the beats) and the music (`.ogg`). Every song `.json` here shows up in the song selection |
