@@ -248,13 +248,18 @@ The frame-by-frame recording `choreography.json` (from branch `test-structure`) 
 |---|---|
 | `audio` | Music file, in the same folder as the song file |
 | `bpm` | Beats per minute of the music |
+| `move_bpm` | Optional. The tempo of the **moves**: higher means shorter moves that come more often. `bpm` stays the tempo of the music (the beat pulse and the song selection). Default: the same as `bpm`. A multiple of `bpm` (for example 2 × 132 = 264) keeps the moves on the beat of the music. |
 | `offset` | Seconds of music before beat 0 |
 | `beat` | The beat where the player must **be in** the pose. The move becomes active here. |
 | `pose` | Name of a pose in `poses.json` |
 | `beats` | How long the player must hold the pose. Default: 2. |
 | `gold` | Optional. `true` = double points. |
 
-Beat to seconds: `seconds = offset + beat * 60 / bpm`.
+Beat to seconds: `seconds = offset + beat * 60 / bpm` (with `move_bpm` instead of `bpm` when the song has it).
+
+**The moves start again** when the music is longer than the moves: after the last move, the first move comes
+again one normal step later (the usual time between two moves), and so on until the music ends. The game reads
+the length of the music from the `.ogg` file.
 Because we use beats, all moves stay on the music. If the music starts a bit late, we only change `offset`.
 
 **Test music:** branch `test-structure` has `assets/song.wav`. A script made this file, so there is no copyright problem. It is 120 BPM and 64 s, the same as `song_1`. It is in the repo as `choreography/song_1.ogg`. All music is stored as `.ogg` (Ogg Vorbis): about 8x smaller than `.wav`, with the same length and timing. `choreography/*.wav` is in `.gitignore`.
