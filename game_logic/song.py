@@ -68,6 +68,13 @@ def check_moves(moves, file_name):
             raise ValueError(f"{file_name} move {i}: starts before move {i - 1} has ended")
 
 
+def find_songs(folder=None):
+    """All song files in the choreography folder (every .json except poses.json), sorted by title."""
+    folder = Path(folder or config.CHOREOGRAPHY_DIR)
+    songs = [Song(path) for path in folder.glob("*.json") if path.name != Path(config.POSES_PATH).name]
+    return sorted(songs, key=lambda song: song.title.lower())
+
+
 class Song:
     def __init__(self, path):
         self.path = Path(path)
@@ -100,11 +107,36 @@ class Song:
             return False
         return True
 
+    @property
+    def length(self):
+        """Seconds until the last move ends."""
+        return self.moves[-1].end
+
+    @property
+    def duet_moves(self):
+        return sum(move.players == 2 for move in self.moves)
+
+    @property
+    def gold_moves(self):
+        return sum(move.gold for move in self.moves)
+
     def start(self):
         self.started_at = time.perf_counter()
         self.last_time = 0.0
         if self.has_audio:
+            # pygame has one music player for all songs (the song selection plays previews),
+            # so load this song's music again before playing it
+            pygame.mixer.music.load(str(self.audio_path))
             pygame.mixer.music.play()
+
+    def preview(self):
+        """Play a part of the music for the song selection, from PREVIEW_START (a part of the song)."""
+        if self.has_audio:
+            pygame.mixer.music.load(str(self.audio_path))
+            pygame.mixer.music.play(start=self.length * config.PREVIEW_START, fade_ms=500)
+
+    def music_playing(self):
+        return self.has_audio and pygame.mixer.music.get_busy()
 
     def stop(self):
         if self.has_audio:
