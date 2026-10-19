@@ -30,6 +30,10 @@ class Camera:
             self.cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)  # opens a lot faster on Windows
         else:
             self.cap = cv2.VideoCapture(source)
+        if isinstance(source, int):
+            # Many webcams only give 1280x720 at 30 fps as MJPG (compressed); without asking for it,
+            # OpenCV often gets 640x480. Ask before the size. A webcam without MJPG keeps its own format.
+            self.cap.set(cv2.CAP_PROP_FOURCC, cv2.VideoWriter_fourcc(*"MJPG"))
         self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, width)
         self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, height)
         self.mirror = mirror
