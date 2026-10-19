@@ -2,6 +2,7 @@
     "title": "Song 1",
     "audio": "song_1.ogg",
     "bpm": 120,
+    "move_bpm": 240,
     "offset": 0.0,
     "moves": [
         {
