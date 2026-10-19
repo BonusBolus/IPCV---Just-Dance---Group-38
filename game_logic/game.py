@@ -37,9 +37,9 @@ def crown_holder(players):
     """Id of the player who leads by at least config.CROWN_LEAD (10%), or None.
     Nobody gets the crown while both scores are 0 (for example during Registration)."""
     (id_1, player_1), (id_2, player_2) = sorted(players.items())
-    if player_1["score"] > player_2["score"] * (1 + config.CROWN_LEAD):
+    if player_1["score"] > player_2["score"]:
         return id_1
-    if player_2["score"] > player_1["score"] * (1 + config.CROWN_LEAD):
+    if player_2["score"] > player_1["score"]:
         return id_2
     return None
 

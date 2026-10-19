@@ -20,7 +20,6 @@ SHOW_TIMELINE = True     # the coming moves slide to a hit line at the bottom (i
 RATING_TIME = 1.0        # how long "Perfect" etc. stays on screen
 DEFAULT_MOVE_BEATS = 2
 HEAD_ENLARGEMENT = 1.35
-CROWN_LEAD = 0.10        # the crown goes to the player whose score is at least 10% higher than the other's
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 3 #higher easier 
 SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame scores: hold the pose, one lucky frame is not enough
