@@ -39,6 +39,28 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
    a gold crown. If you walk out of the image, the game warns you and the song keeps going.
 5. **Results:** the scores and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
 
+## Make an executable
+
+You can pack the game into one folder with a program, so others can play without installing Python.
+
+1. Make a **separate** Python environment with the **CPU version** of PyTorch. The normal PyTorch is the CUDA
+   version, which adds about 4 GB of NVIDIA libraries that the game does not use (it runs YOLO with OpenVINO).
+   ```
+   python -m venv build-env
+   build-env/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+   build-env/bin/pip install -r requirements.txt pyinstaller
+   ```
+   On Windows use `build-env\Scripts\pip` and `build-env\Scripts\python`.
+2. Build (about 2 minutes):
+   ```
+   build-env/bin/python -m PyInstaller just_dance.spec --noconfirm
+   ```
+3. The game is `dist/JustDance/JustDance` (Windows: `dist\JustDance\JustDance.exe`). It takes the same options
+   as `main.py` (`--debug`, `--windowed`, `--camera 1`, ...). Share the **whole** `dist/JustDance` folder (about 1.5 GB).
+
+PyInstaller makes a program for the system you build on: build on Windows for Windows players. The recipe
+(`just_dance.spec`) packs the YOLO model, its OpenVINO version, the face model and all songs (`.json` + `.ogg`).
+
 ## Project structure
 
 | Folder / file | What it does |
