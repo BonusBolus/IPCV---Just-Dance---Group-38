@@ -45,6 +45,7 @@ class PlayingState(State):
         self.interacted = False                          # both players met this move's interaction
         self.duet_bonus_since = None
         self.ratings = {}                                # player id -> ("Perfect", time)
+        self.rating_spots = {}                           # player id -> x where the rating stays (or None)
         self.last_seen = {i: game.now for i in PLAYER_IDS}
         self.roles = {i: role for role, i in enumerate(PLAYER_IDS)}   # duet part per player, see _update_roles
 
@@ -121,6 +122,9 @@ class PlayingState(State):
             game.players[i]["score"] += points
             game.players[i]["last_move_points"] = points
             self.ratings[i] = (rating(score), game.now)
+            # the rating stays where the player stood when it came, it does not follow the player
+            box = game.players[i]["box"] if game.players[i]["visible"] else None
+            self.rating_spots[i] = box[0] + box[2] // 2 if box is not None else None
         if bonus_awarded:
             self.duet_bonus_since = game.now
         self.move = None
@@ -139,7 +143,8 @@ class PlayingState(State):
         ratings = {i: text for i, (text, since) in self.ratings.items()
                    if game.now - since < config.RATING_TIME}
         ages = {i: game.now - since for i, (text, since) in self.ratings.items()}
-        image = game.scene.draw_ratings(image, ratings, game.players, ages, config.RATING_TIME)   # pops, above each player
+        image = game.scene.draw_ratings(image, ratings, game.players, ages, config.RATING_TIME,
+                                        spots=self.rating_spots)   # pops, above each player, does not move
 
         lost = [game.players[i] for i in PLAYER_IDS if self.is_lost(game, i)]
         for row, player in enumerate(lost):

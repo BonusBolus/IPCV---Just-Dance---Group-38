@@ -89,7 +89,7 @@ class DuetFeedbackTests(unittest.TestCase):
         self.finish()
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
         self.game.scene.render.side_effect = lambda image, players: image
-        self.game.scene.draw_ratings.side_effect = lambda image, ratings, *args: image
+        self.game.scene.draw_ratings.side_effect = lambda image, ratings, *args, **kwargs: image
         with patch("game_logic.states.playing.draw_move_cards", side_effect=lambda game, image, t: image), \
              patch("game_logic.states.playing.draw_duet_bonus", side_effect=lambda image, progress: image) as popup:
             self.state.draw(self.game, frame)

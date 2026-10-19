@@ -4,7 +4,8 @@ from types import SimpleNamespace
 
 import numpy as np
 
-from game_logic.states.common import full_body_visible
+from game_logic.pose_grading import PoseGrader
+from game_logic.states.common import body_visible_down_to, lowest_needed_part
 from identity_tracking.identity import new_player_entry
 from scene import timeline
 from scene.registration_screen import HINT, draw_registration
@@ -68,25 +69,58 @@ class TimelineTests(unittest.TestCase):
 
 
 class FullBodyTests(unittest.TestCase):
-    def player(self, ankles):
+    def player(self, knees):
         entry = new_player_entry(1)
         entry["visible"] = True
         entry["box"] = (500, 150, 200, 500)
-        entry["keypoints"].update(nose=(600, 200), left_ankle=(580, 640) if ankles else None,
-                                  right_ankle=(620, 640) if ankles else None)
+        entry["keypoints"].update(nose=(600, 200), left_knee=(580, 520) if knees else None,
+                                  right_knee=(620, 520) if knees else None)
         return entry
 
-    def test_full_body(self):
-        self.assertTrue(full_body_visible(self.player(ankles=True)))
-        self.assertFalse(full_body_visible(self.player(ankles=False)))
+    def test_the_grader_needs_the_knees(self):
+        # the poses use shoulder, elbow and hip angles; the hip angle goes from the hip to the knee
+        self.assertEqual(lowest_needed_part(PoseGrader()), "knee")
 
-    def test_step_back_hint_only_when_feet_are_not_seen(self):
-        for ankles, expected in ((False, True), (True, False)):
+    def test_needed_part_follows_the_grader(self):
+        grader = SimpleNamespace(processed_poses={"a": {"angles": [{"left_knee": 0.0, "left_shoulder": 0.0}]}})
+        self.assertEqual(lowest_needed_part(grader), "ankle")          # the knee angle goes to the ankle
+
+    def test_visible_down_to(self):
+        self.assertTrue(body_visible_down_to(self.player(knees=True), "knee"))
+        self.assertFalse(body_visible_down_to(self.player(knees=False), "knee"))
+
+    def test_step_back_hint_only_when_the_knees_are_not_seen(self):
+        for knees, expected in ((False, True), (True, False)):
             frame = np.zeros((720, 1280, 3), np.uint8)
-            players = {1: self.player(ankles), 2: new_player_entry(2)}
+            players = {1: self.player(knees), 2: new_player_entry(2)}
+            full_body = {1: body_visible_down_to(players[1], "knee"), 2: True}
             draw_registration(frame, players, {1: None, 2: None}, {1: False, 2: False}, {1: 0.0, 2: 0.0},
-                              False, {1: full_body_visible(players[1]), 2: True})
+                              False, full_body, "Step back - show your knees")
             self.assertEqual(bool(np.all(frame == HINT, axis=2).any()), expected)
+
+
+class StayAndPreviewTests(unittest.TestCase):
+    def test_rating_stays_where_the_player_was(self):
+        from scene.scene import Scene
+        players = {1: new_player_entry(1), 2: new_player_entry(2)}
+        players[1].update(visible=True, box=(810, 170, 180, 500))          # the player walked to x = 900
+        frame = np.zeros((720, 1280, 3), np.uint8)
+        Scene().draw_ratings(frame, {1: "Good"}, players, {1: 0.5}, 1.0, spots={1: 300})
+        xs = np.nonzero(frame.any(axis=2))[1]
+        self.assertAlmostEqual(xs.mean(), 300, delta=25)                    # still at x = 300
+
+    def test_now_card_shows_the_coming_move_between_moves(self):
+        from scene import move_cards
+        coming = move(5.0, 6.0)
+
+        def figure_pixels(next_move):
+            frame = np.zeros((720, 1280, 3), np.uint8)
+            move_cards.draw_move_cards(frame, None, 0.0, next_move, 0.5, 0.0, False, show_next=False)
+            card = frame[720 - 310 + 45:720 - 80, 1280 - 250:1280 - 20]      # the figure part of the NOW card
+            return int(np.all(card == (255, 255, 255), axis=2).sum())
+
+        self.assertGreater(figure_pixels(coming), 200)                      # a stick figure of the coming move
+        self.assertLess(figure_pixels(None), 50)                            # "Get ready": no figure
 
 
 if __name__ == "__main__":

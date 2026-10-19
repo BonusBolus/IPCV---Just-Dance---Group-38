@@ -1,6 +1,6 @@
 """Registration: the game starts here. The tracker finds 2 players, and both raise their hands when ready."""
 import config
-from game_logic.states.common import full_body_visible, hands_up, HoldGesture, PLAYER_IDS, State
+from game_logic.states.common import BODY_PART_WORDS, body_visible_down_to, lowest_needed_part, hands_up, HoldGesture, PLAYER_IDS, State
 from scene.registration_screen import draw_registration
 
 
@@ -29,7 +29,10 @@ class RegistrationState(State):
 
     def draw(self, game, image):
         progress = {i: self.gestures[i].progress for i in PLAYER_IDS}
-        full_body = {i: full_body_visible(game.players[i]) for i in PLAYER_IDS}
+        # "Step back" when the camera does not see the lowest body part that the grading needs
+        part = lowest_needed_part(game.pose_grader)
+        full_body = {i: body_visible_down_to(game.players[i], part) for i in PLAYER_IDS}
+        hint = f"Step back - show your {BODY_PART_WORDS[part]}" if part else None
         image = draw_registration(image, game.players, game.heads, self.ready, progress,
-                                  game.tracker.colors_are_similar(), full_body)
+                                  game.tracker.colors_are_similar(), full_body, hint)
         return game.scene.draw_title(image, list(game.players.values()), "Raise both hands when you are ready")

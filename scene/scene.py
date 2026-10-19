@@ -106,19 +106,25 @@ class Scene:
             cv2.line(frame, (x, y - size), (x, y + size), color, 1, cv2.LINE_AA)
         return frame
 
-    def draw_ratings(self, frame, ratings, players=None, ages=None, total_time=1.0):
+    def draw_ratings(self, frame, ratings, players=None, ages=None, total_time=1.0, spots=None):
         """"Perfect", "Good", ... under the score bar. ratings: {player_id: "Perfect"}
 
         Each rating is drawn above the player's OWN place on the screen (the middle of their box),
         so it is clear whose rating it is, also when Player 1 stands on the right. A player that
         is not visible gets the fixed side of their score (left for Player 1, right for Player 2).
-        ages: {player_id: seconds since the rating came}: a new rating pops (see pop())."""
+        ages: {player_id: seconds since the rating came}: a new rating pops (see pop()).
+        spots: {player_id: x or None}: a fixed place per rating (where the player stood when it came),
+        so the rating does not move with the player. None = not visible then: the fixed side."""
         width = frame.shape[1]
-        spots = {}
+        fixed, spots = spots, {}
         for player_id in ratings:
-            box = players[player_id]["box"] if players and players[player_id]["visible"] else None
-            if box is not None:
-                spots[player_id] = box[0] + box[2] // 2
+            if fixed and player_id in fixed:
+                x = fixed[player_id]
+            else:
+                box = players[player_id]["box"] if players and players[player_id]["visible"] else None
+                x = box[0] + box[2] // 2 if box is not None else None
+            if x is not None:
+                spots[player_id] = x
             else:
                 spots[player_id] = width // 2 + (-1 if player_id == 1 else 1) * width // 8
         if len(spots) == 2:                                   # close together: push the texts apart

@@ -40,13 +40,35 @@ def hands_up(player):
     return left[1] < nose[1] and right[1] < nose[1]
 
 
-def full_body_visible(player):
-    """True if the camera sees the whole player: the nose and at least one ankle.
+# The two keypoints of each joint angle in the PoseGrader (see pose_grading._get_reference_angles)
+ANGLE_POINTS = {"shoulder": ("shoulder", "elbow"), "elbow": ("elbow", "wrist"),
+                "hip": ("hip", "knee"), "knee": ("knee", "ankle")}
+LOWER_BODY = ("hip", "knee", "ankle")                  # from top to bottom
+BODY_PART_WORDS = {"hip": "hips", "knee": "knees", "ankle": "feet"}
+
+
+def lowest_needed_part(pose_grader):
+    """The lowest body part the grading looks at in any pose, for example "knee" (the hip angle
+    goes from the hip to the knee). Players must stand far enough back to show it. This follows
+    the grader: if it starts using the knee angles, it becomes "ankle"."""
+    parts = set()
+    for pose in pose_grader.processed_poses.values():
+        for angles in pose["angles"]:
+            for joint in angles:                      # for example "left_hip"
+                parts.update(ANGLE_POINTS[joint.split("_", 1)[1]])
+    lower = [part for part in LOWER_BODY if part in parts]
+    return lower[-1] if lower else None
+
+
+def body_visible_down_to(player, part):
+    """True if the camera sees the nose and the `part` (for example "knee") of at least one side.
 
     The tracker only keeps keypoints the model is sure about (confidence 0.5), so a guessed
-    ankle (legs out of the image) does not count. The grading works best with the whole body."""
+    knee (legs out of the image) does not count."""
     points = player["keypoints"]
-    return points["nose"] is not None and (points["left_ankle"] is not None or points["right_ankle"] is not None)
+    if points["nose"] is None:
+        return False
+    return part is None or points[f"left_{part}"] is not None or points[f"right_{part}"] is not None
 
 
 def raised_hands(player):
