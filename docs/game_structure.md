@@ -52,7 +52,7 @@ stateDiagram-v2
 - Extra help: when `tracker.colors_are_similar()` is True, show "Please wear different colours".
 - The hands-up progress bar is drawn above the player's head (where the crown would be). See [face_tracking.md](face_tracking.md).
 
-**In every state** the game draws big heads and the label "Player 1" / "Player 2" on the forehead. The player who leads by at least 10 % in score also gets a gold crown (the label is then on the crown), plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
+**In every state** the game draws big heads and the label "Player 1" / "Player 2" on the forehead. The player who is ahead in score also gets a gold crown (the label is then on the crown), plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
 
 **Countdown**
 - No grading yet. It gives players time to get into position.

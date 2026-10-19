@@ -57,34 +57,32 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 Only this was added (and `RATING_COLORS, draw_text` in the import line):
 
 ```python
-def draw_ratings(self, frame, ratings, players=None):
-    """"Perfect", "Good", ... under the score bar. ratings: {player_id: "Perfect"}
-
-    Each rating is drawn above the player's OWN place on the screen (the middle of their box),
-    so it is clear whose rating it is, also when Player 1 stands on the right. A player that
-    is not visible gets the fixed side of their score (left for Player 1, right for Player 2)."""
+def draw_ratings(self, frame, ratings, ages=None, total_time=1.0):
+    """"Perfect", "Good", ... right next to the score bar, on the side of that player's score:
+    the left player's rating left of the bar, the right player's rating right of it (see
+    update_sides(); render() must be called first in the same frame).
+    ratings: {player_id: "Perfect"}
+    ages:    {player_id: seconds since the rating came}: a new rating pops (see pop())."""
     width = frame.shape[1]
-    spots = {}
-    for player_id in ratings:
-        box = players[player_id]["box"] if players and players[player_id]["visible"] else None
-        if box is not None:
-            spots[player_id] = box[0] + box[2] // 2
-        else:
-            spots[player_id] = width // 2 + (-1 if player_id == 1 else 1) * width // 8
-    if len(spots) == 2:                                   # close together: push the texts apart
-        (a, xa), (b, xb) = sorted(spots.items(), key=lambda item: item[1])
-        if xb - xa < 180:
-            middle = (xa + xb) // 2
-            spots[a], spots[b] = middle - 90, middle + 90
+    bar_width = width // 4
+    bar_left, bar_right = width // 2 - bar_width // 2, width // 2 + bar_width // 2
+    y = (self.score_top + self.score_bottom) // 2
+    left_id = (self.sides or sorted(ratings))[0]
     for player_id, rating in ratings.items():
-        x = min(max(spots[player_id], 80), width - 80)    # keep the text on the screen
-        draw_text(frame, rating, (x, self.score_bottom + 35), 1.0, RATING_COLORS[rating])
+        size, alpha = pop(ages[player_id], total_time) if ages and player_id in ages else (1.0, 1.0)
+        text_w = cv2.getTextSize(rating, cv2.FONT_HERSHEY_SIMPLEX, size, 5)[0][0]
+        if player_id == left_id:
+            x = max(bar_left - RATING_GAP - text_w // 2, text_w // 2 + 5)
+        else:
+            x = min(bar_right + RATING_GAP + text_w // 2, width - text_w // 2 - 5)
+        self._draw_fading_text(frame, rating, (x, y), size, RATING_COLORS[rating], alpha)
     return frame
 ```
 
 It is in `scene.py` because the ratings are placed under the score bar (`self.score_bottom`).
-Each rating is drawn above the player's own place on the screen (the middle of their box), so it is clear
-whose rating it is, also when Player 1 stands on the right. The game calls it as `draw_ratings(image, ratings, game.players)`.
+The score bar follows where the players stand (`update_sides()`): the player on the left has the left part
+and the left number, and their rating is right next to it. The sides only swap when the players clearly
+stand the other way round, so the bar does not flip back and forth.
 `render(frame, players)` without a pose is used for the title and score bar during Countdown and Playing.
 
 Two more methods were added later:

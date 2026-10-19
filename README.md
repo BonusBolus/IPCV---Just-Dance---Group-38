@@ -34,9 +34,11 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
    "Player 1" / "Player 2" on the forehead. Wear different coloured shirts, so the game does not mix you up.
 3. **Raise both hands** (wrists above your nose) and hold them for 1 s. The bar above your head fills up.
    When both players are ready, the countdown starts.
-4. **Playing:** copy the pose on the **NOW** card. The **NEXT** card shows the coming move. Each move gives
-   points once: Perfect, Good, OK or Miss. Gold moves count double. The player who is at least 10 % ahead wears
-   a gold crown. If you walk out of the image, the game warns you and the song keeps going.
+4. **Playing:** the coming moves slide to the hit line at the bottom; be in the pose when it reaches the line,
+   and copy the pose on the **NOW** card. Between moves the card already shows the **NEXT** move. Each move gives
+   points once: Perfect, Good, OK or Miss, shown next to your score (your score is on your side of the bar).
+   Gold moves count double. The player who is ahead wears a gold crown. If you walk out of the image, the game
+   warns you and the song keeps going.
 5. **Results:** the scores and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
 
 ## Make an executable

@@ -100,15 +100,6 @@ class FullBodyTests(unittest.TestCase):
 
 
 class StayAndPreviewTests(unittest.TestCase):
-    def test_rating_stays_where_the_player_was(self):
-        from scene.scene import Scene
-        players = {1: new_player_entry(1), 2: new_player_entry(2)}
-        players[1].update(visible=True, box=(810, 170, 180, 500))          # the player walked to x = 900
-        frame = np.zeros((720, 1280, 3), np.uint8)
-        Scene().draw_ratings(frame, {1: "Good"}, players, {1: 0.5}, 1.0, spots={1: 300})
-        xs = np.nonzero(frame.any(axis=2))[1]
-        self.assertAlmostEqual(xs.mean(), 300, delta=25)                    # still at x = 300
-
     def test_now_card_shows_the_coming_move_between_moves(self):
         from scene import move_cards
         coming = move(5.0, 6.0)
