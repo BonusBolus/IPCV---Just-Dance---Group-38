@@ -37,7 +37,7 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 | the text outline, the progress bars, the red warning banner | `functions.py` |
 | how a pose looks (lines, head, thickness) | `pose_figure.py` |
 | the size or place of the NOW / NEXT cards, the pulse, the flash | `move_cards.py` |
-| the progress bar / "READY" above the crown, "Waiting for Player 2..." | `registration_screen.py` |
+| the progress bar / "READY" above the head, "Waiting for Player 2..." | `registration_screen.py` |
 | the "Player 1" / "Player 2" labels on the crown, the crown, the big heads | `face_tracking/game_effects.py`, see [face_tracking.md](face_tracking.md) |
 | the glow and sparkles at the screen edges | `scene.py`, `draw_edge_effects()` |
 | the scores, the winner text, "Raise both hands to play again" | `results_screen.py` |
@@ -114,8 +114,8 @@ draw_registration(frame, players, heads, ready, progress, colors_similar)
 ```
 
 - `heads` is `game.heads`: the face of each player, or `None` (see [face_tracking.md](face_tracking.md)).
-- The label "Player 1" is **not** drawn here: `Game.step()` writes it on the crown in every state.
-- Just above the crown of each player: the progress bar of the hands-up gesture, as wide as the crown. When the player is ready: "READY".
+- The label "Player 1" is **not** drawn here: `Game.step()` writes it on the forehead (or on the crown) in every state.
+- Just above the head of each player (where the tips of the crown would be): the progress bar of the hands-up gesture, as wide as the crown. When the player is ready: "READY".
 - When no face is found for a player, the label and the bar are drawn at the top of the player's box instead.
 - A player that is not found yet: "Waiting for Player 2..." at the bottom.
 - At the top: "Raise both hands when you are ready".

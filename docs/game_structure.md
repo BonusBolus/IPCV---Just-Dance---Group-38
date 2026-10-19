@@ -26,7 +26,7 @@ stateDiagram-v2
 
 | State | What the players see | What the game checks | How to leave |
 |---|---|---|---|
-| **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the crown, a progress bar or "READY" above the crown | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
+| **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the forehead, a progress bar or "READY" above the head | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
 | **Countdown** | Big "3", "2", "1", "Dance!" and the NEXT card with the first move | Only time | After 3 s → Playing (music starts) |
 | **Playing** | The NOW and NEXT move cards, score bar, a pose rating ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
 | **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1.5 s, or 20 s → Registration (new players) |
@@ -39,9 +39,9 @@ stateDiagram-v2
 - The tracker gives Player 1 and Player 2 to the first two people it sees.
 - A player is **ready** after holding both hands up for 1.5 s. If the player leaves the image, "ready" is removed again.
 - Extra help: when `tracker.colors_are_similar()` is True, show "Please wear different colours".
-- The hands-up progress bar is drawn above the player's crown. See [face_tracking.md](face_tracking.md).
+- The hands-up progress bar is drawn above the player's head (where the crown would be). See [face_tracking.md](face_tracking.md).
 
-**In every state** the game draws big heads, a gold crown and the label "Player 1" / "Player 2" on the crown, plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
+**In every state** the game draws big heads and the label "Player 1" / "Player 2" on the forehead. The player who leads by at least 10 % in score also gets a gold crown (the label is then on the crown), plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
 
 **Countdown**
 - No grading yet. It gives players time to get into position.
