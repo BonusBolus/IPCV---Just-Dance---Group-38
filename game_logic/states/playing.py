@@ -63,16 +63,18 @@ class PlayingState(State):
 
         self.live = {i: None for i in PLAYER_IDS}
         if self.graded:
-            duet = move.players == 2 #check if duet
+            duet = move.players == 2
+            if duet:
+                self._update_roles(game)
             kps = {}
-            for role, i in enumerate(PLAYER_IDS):
+            for i in PLAYER_IDS:
                 player = game.players[i]
                 if not player["visible"] or player["keypoints_raw"] is None:
                     continue                             # a lost player gets no points
                 with np.errstate(divide="ignore", invalid="ignore"):
                     keypoints = player["keypoints_raw"][MIRROR_SWAP]    # see MIRROR_SWAP
                     score = float(game.pose_grader.grade_pose(
-                        keypoints, move.key, player=role if duet else 0))
+                        keypoints, move.key, player=self.roles[i] if duet else 0))
                 if not math.isfinite(score):
                     continue                             # for example shoulders on top of each other
                 kps[i] = keypoints
@@ -82,7 +84,7 @@ class PlayingState(State):
             if duet and len(kps) == len(PLAYER_IDS) and all(
                 self.live[i] >= config.DUET_MIN_SCORE for i in PLAYER_IDS
             ):
-                ordered = [kps[i] for i in PLAYER_IDS]
+                ordered = [kps[i] for i in sorted(kps, key=self.roles.get)]
                 if game.pose_grader.interaction_met(ordered, move.key):
                     self.interacted = True
 
@@ -158,3 +160,18 @@ class PlayingState(State):
             for row, line in enumerate([f"t = {t:.1f} s"] + lines):
                 image = draw_text(image, line, (90, 140 + 25 * row), 0.6, GREEN)
         return image
+    
+    def _update_roles(self, game):
+        """Role 0 = player on the left of the screen, role 1 = on the right.
+        Only updated while both players are tracked; otherwise the last assignment stays."""
+        ids = [i for i in PLAYER_IDS
+               if game.players[i]["visible"] and game.players[i]["keypoints_raw"] is not None]
+        if len(ids) < len(PLAYER_IDS):
+            return
+
+        def shoulder_x(i):
+            kp = game.players[i]["keypoints_raw"]
+            return (kp[KEYPOINT_NAMES.index("left_shoulder"), 0]
+                    + kp[KEYPOINT_NAMES.index("right_shoulder"), 0]) / 2
+
+        self.roles = {i: r for r, i in enumerate(sorted(ids, key=shoulder_x))}

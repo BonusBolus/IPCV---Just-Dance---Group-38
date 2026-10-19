@@ -238,9 +238,9 @@ class PoseGrader:
                 target_angle,
             )
 
-            #make legs 4 times less important
-            if joint.contains("hip"):
-                error = error / 4
+            # #make legs 4 times less important
+            # if joint.contains("hip"):
+            #     error = error / 4
                 
                 
             errors.append(error)
