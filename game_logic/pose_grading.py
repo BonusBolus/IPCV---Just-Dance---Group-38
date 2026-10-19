@@ -239,7 +239,7 @@ class PoseGrader:
             )
 
             #make legs 4 times less important
-            if joint.contains("hip"):
+            if "hip" in joint:
                 error = error / 4
                 
                 
