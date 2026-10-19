@@ -138,7 +138,7 @@ class PlayingState(State):
 
         ratings = {i: text for i, (text, since) in self.ratings.items()
                    if game.now - since < config.RATING_TIME}
-        image = game.scene.draw_ratings(image, ratings)
+        image = game.scene.draw_ratings(image, ratings, game.players)   # above each player's own place
 
         lost = [game.players[i] for i in PLAYER_IDS if self.is_lost(game, i)]
         for row, player in enumerate(lost):

@@ -53,16 +53,34 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 Only this was added (and `RATING_COLORS, draw_text` in the import line):
 
 ```python
-def draw_ratings(self, frame, ratings):
-    """"Perfect", "Good", ... under the score of each player. ratings: {player_id: "Perfect"}"""
+def draw_ratings(self, frame, ratings, players=None):
+    """"Perfect", "Good", ... under the score bar. ratings: {player_id: "Perfect"}
+
+    Each rating is drawn above the player's OWN place on the screen (the middle of their box),
+    so it is clear whose rating it is, also when Player 1 stands on the right. A player that
+    is not visible gets the fixed side of their score (left for Player 1, right for Player 2)."""
     width = frame.shape[1]
+    spots = {}
+    for player_id in ratings:
+        box = players[player_id]["box"] if players and players[player_id]["visible"] else None
+        if box is not None:
+            spots[player_id] = box[0] + box[2] // 2
+        else:
+            spots[player_id] = width // 2 + (-1 if player_id == 1 else 1) * width // 8
+    if len(spots) == 2:                                   # close together: push the texts apart
+        (a, xa), (b, xb) = sorted(spots.items(), key=lambda item: item[1])
+        if xb - xa < 180:
+            middle = (xa + xb) // 2
+            spots[a], spots[b] = middle - 90, middle + 90
     for player_id, rating in ratings.items():
-        x = width // 2 + (-1 if player_id == 1 else 1) * width // 8
+        x = min(max(spots[player_id], 80), width - 80)    # keep the text on the screen
         draw_text(frame, rating, (x, self.score_bottom + 35), 1.0, RATING_COLORS[rating])
     return frame
 ```
 
 It is in `scene.py` because the ratings are placed under the score bar (`self.score_bottom`).
+Each rating is drawn above the player's own place on the screen (the middle of their box), so it is clear
+whose rating it is, also when Player 1 stands on the right. The game calls it as `draw_ratings(image, ratings, game.players)`.
 `render(frame, players)` without a pose is used for the title and score bar during Countdown and Playing.
 
 Two more methods were added later:
