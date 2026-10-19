@@ -83,24 +83,22 @@ class PoseGrader:
             hip = point(f"{side}_hip")
             knee = point(f"{side}_knee")
             ankle = point(f"{side}_ankle")
+            
+            limbs = {
+            f"{side}_shoulder": (elbow - shoulder, [shoulder, elbow]),
+            f"{side}_elbow": (wrist - elbow, [elbow, wrist]),
+            f"{side}_hip": (knee - hip, [hip, knee]),
+            f"{side}_knee": (ankle - knee, [knee, ankle]),
+            }
 
-            angles[f"{side}_shoulder"] = self._angle(
-                elbow - shoulder
-            )
-
-            angles[f"{side}_elbow"] = self._angle(
-                wrist - elbow
-            )
-
-            angles[f"{side}_hip"] = self._angle(
-                knee - hip
-            )
-
-            angles[f"{side}_knee"] = self._angle(
-                ankle - knee
-            )
+            #some poses might not have knee or leg references (otherwise you would stand very far away)
+            #delete these agnles
+            for joint, (vector, points) in limbs.items():
+                if all(np.all(np.isfinite(p)) for p in points):
+                    angles[joint] = self._angle(vector)
 
         return angles
+
 
     def _body_coordinate_system(self, player):
         """
@@ -234,12 +232,17 @@ class PoseGrader:
         errors = []
 
         for joint, target_angle in reference_angles.items():
-
+                
             error = self._angle_difference(
                 player_angles[joint],
                 target_angle,
             )
 
+            #make legs 4 times less important
+            if joint.contains("hip"):
+                error = error / 4
+                
+                
             errors.append(error)
 
         mean_error = np.mean(errors)
