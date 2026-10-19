@@ -114,5 +114,23 @@ class StayAndPreviewTests(unittest.TestCase):
         self.assertLess(figure_pixels(None), 50)                            # "Get ready": no figure
 
 
+class SpeedTests(unittest.TestCase):
+    def test_kept_player_label_looks_the_same_as_a_new_one(self):
+        import face_tracking.game_effects as effects
+        face = {"location": (640, 330), "size": (223, 260), "orientation": {"roll": 4.0}}
+        first = np.full((720, 1280, 3), 80, np.uint8)
+        effects.add_player_label(first, "Player 1", face, (255, 120, 0))
+        effects.add_player_label(first.copy(), "Player 1", face, (255, 120, 0))      # from the cache
+        effects._label_tile.cache_clear()
+        fresh = np.full((720, 1280, 3), 80, np.uint8)
+        effects.add_player_label(fresh, "Player 1", face, (255, 120, 0))
+        self.assertTrue(np.array_equal(first, fresh))
+
+    def test_face_detection_works_on_a_big_image(self):
+        import face_tracking.face_tracking as tracking
+        image = np.zeros((720, 1280, 3), np.uint8)
+        self.assertEqual(tracking.get_face_properties(image), [])          # no face, no crash, 640 wide copy
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -19,6 +19,7 @@ GRADE_GRACE = 0.3        # extra seconds to hit a pose after the move ends
 SHOW_TIMELINE = True     # the coming moves slide to a hit line at the bottom (instead of the NEXT card)
 RATING_TIME = 1.0        # how long "Perfect" etc. stays on screen
 DEFAULT_MOVE_BEATS = 2
+FACE_DETECT_WIDTH = 640   # face tracking looks at a copy of the image this wide (faster, same faces)
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 3 #higher easier 
