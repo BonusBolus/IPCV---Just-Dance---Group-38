@@ -14,7 +14,12 @@ import config
 from scene import move_cards, timeline
 from scene.functions import player_color
 
-PLAYER_IDS = (1, 2)
+PLAYER_IDS = tuple(range(1, config.MAX_PLAYERS + 1))   # every player slot (see players_in_game())
+
+
+def players_in_game(game):
+    """The ids of the players who really play: registered at Registration (slots nobody took are left out)."""
+    return [i for i, player in game.players.items() if player["registered"]]
 
 
 class State:
@@ -118,7 +123,7 @@ def draw_move_cards(game, image, t):
     t is the song time; during the countdown it is negative, so the timeline already moves."""
     song = game.song
     now_move = song.current_move(t)
-    colors = tuple(player_color(game.players[i]) for i in PLAYER_IDS)
+    colors = tuple(player_color(player) for player in list(game.players.values())[:2])   # duet figures: 2 colours
     if config.SHOW_TIMELINE:
         image = timeline.draw_timeline(image, song.moves, t, song.beat_phase(t), colors)
     return move_cards.draw_move_cards(

@@ -8,6 +8,9 @@ YOLO_MODEL_PATH = ROOT / "yolo26n-pose.pt"
 MAX_FPS = 25             # the game never runs faster than this: less work and heat for the laptop
 USE_OPENVINO = True      # run YOLO with OpenVINO: about 2x faster on the CPU, same model (see pose_processing.py)
 
+MAX_PLAYERS = 5          # up to this many players register; with exactly 2 the classic score bar is used
+MIN_PLAYERS = 1          # the game starts when everyone registered is ready, and at least this many players
+DROP_TIME = 3.0          # registration: a player who is gone this long (seconds) is not waited for
 HOLD_TIME = 1.0          # seconds to hold "hands up" (song selection, registration, results)
 BROWSE_HOLD_TIME = 0.5   # song selection: seconds to hold one hand up to go to the previous / next song
 PREVIEW_START = 0.3      # song selection: the music preview starts at this part of the song (0.3 = 30%)
