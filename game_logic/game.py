@@ -33,6 +33,17 @@ def find_faces(image):
     return smooth_face_properties(get_face_properties(image))
 
 
+def crown_holder(players):
+    """Id of the player who leads by at least config.CROWN_LEAD (10%), or None.
+    Nobody gets the crown while both scores are 0 (for example during Registration)."""
+    (id_1, player_1), (id_2, player_2) = sorted(players.items())
+    if player_1["score"] > player_2["score"] * (1 + config.CROWN_LEAD):
+        return id_1
+    if player_2["score"] > player_1["score"] * (1 + config.CROWN_LEAD):
+        return id_2
+    return None
+
+
 # Only used by the debug key "n": jump to the next state
 NEXT_STATE = {"song_select": "registration", "registration": "countdown", "countdown": "playing",
               "playing": "results", "results": "song_select"}
@@ -97,7 +108,9 @@ class Game:
         self.heads = faces_for_players(self.players, faces)
         player_faces = [face for face in self.heads.values() if face is not None]
         enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT)
-        add_crown(image, player_faces)
+        leader = crown_holder(self.players)
+        if leader is not None and self.heads[leader] is not None:
+            add_crown(image, [self.heads[leader]])
         # The player label sits on the crown band (on the forehead when there is no crown)
         for player_id, face in self.heads.items():
             if face is not None:
