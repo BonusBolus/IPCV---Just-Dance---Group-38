@@ -46,7 +46,7 @@ class PlayingState(State):
         self.duet_bonus_since = None
         self.ratings = {}                                # player id -> ("Perfect", time)
         self.last_seen = {i: game.now for i in PLAYER_IDS}
-        self.last_x = {}                                 # player id -> x of the middle of their box (last seen)
+        self.roles = {i: role for role, i in enumerate(PLAYER_IDS)}   # duet part per player, see _update_roles
 
     def update(self, game):
         t = game.song.time()
@@ -75,7 +75,7 @@ class PlayingState(State):
                 with np.errstate(divide="ignore", invalid="ignore"):
                     keypoints = player["keypoints_raw"][MIRROR_SWAP]    # see MIRROR_SWAP
                     score = float(game.pose_grader.grade_pose(
-                        keypoints, move.key, player=role if duet else 0))
+                        keypoints, move.key, player=self.roles[i] if duet else 0))
                 if not math.isfinite(score):
                     continue                             # for example shoulders on top of each other
                 kps[i] = keypoints
@@ -85,7 +85,7 @@ class PlayingState(State):
             if duet and len(kps) == len(PLAYER_IDS) and all(
                 self.live[i] >= config.DUET_MIN_SCORE for i in PLAYER_IDS
             ):
-                ordered = [kps[i] for i in PLAYER_IDS]
+                ordered = [kps[i] for i in sorted(kps, key=self.roles.get)]   # left to right
                 if game.pose_grader.interaction_met(ordered, move.key):
                     self.interacted = True
 
@@ -102,23 +102,6 @@ class PlayingState(State):
         a player who was not graded at all gets 0."""
         scores = self.frame_scores[player_id]
         return float(np.percentile(scores, config.SCORE_PERCENTILE)) if scores else 0.0
-
-    def duet_roles(self, game):
-        """Which part of a duet each player does: {player id: 0 or 1}.
-
-        Part 0 (keypoints in poses.json) is for the player on the LEFT of the screen, part 1
-        (keypoints_2) for the player on the right, and interaction_met() wants the players left
-        to right. So the place on the screen decides, not the player number: Player 1 can stand
-        on either side. A player who is out of view for a moment keeps their last place."""
-        for i in PLAYER_IDS:
-            player = game.players[i]
-            if player["visible"] and player["box"] is not None:
-                x, _, w, _ = player["box"]
-                self.last_x[i] = x + w / 2
-        if any(i not in self.last_x for i in PLAYER_IDS):
-            return {i: role for role, i in enumerate(PLAYER_IDS)}     # place unknown: by player number
-        left_to_right = sorted(PLAYER_IDS, key=lambda i: self.last_x[i])
-        return {i: role for role, i in enumerate(left_to_right)}
 
     def finish_move(self, game):
         """Points once per move (see move_score), x2 for gold, plus a successful duet's bonus."""

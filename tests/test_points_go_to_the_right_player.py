@@ -84,6 +84,14 @@ class PointsGoToTheRightPlayerTests(unittest.TestCase):
         bonus_with_1_right = self.duet(player_1_on_the_left=False)[1]
         self.assertEqual(sorted(bonus_with_1_left.values()), sorted(bonus_with_1_right.values()))
 
+    def test_duet_while_one_player_is_not_visible(self):
+        # the roles cannot be measured yet (player 2 is out of view): no crash, player 1 still gets points
+        pose = POSES["high_five"]
+        players = {1: visible_player(1, pose["keypoints"], 400), 2: new_player_entry(2)}
+        _, scores = self.play_one_move("high_five", players)
+        self.assertGreater(scores[1], 80)
+        self.assertEqual(scores[2], 0)
+
 
 if __name__ == "__main__":
     unittest.main()
