@@ -6,19 +6,29 @@ from scene.functions import GREEN, draw_banner, draw_bar, draw_text, player_colo
 TOP_MARGIN = 140
 
 
-def draw_registration(frame, players, heads, ready, progress, colors_similar):
+HINT = (0, 165, 255)   # orange (BGR)
+
+
+def draw_registration(frame, players, heads, ready, progress, colors_similar, full_body=None,
+                      step_back_text="Step back - show your feet"):
     """players:     dict from the IdentityTracker, {1: {...}, 2: {...}}
     heads:          {1: face or None, ...}: the face of each player (game_effects.faces_for_players)
     ready:          {1: True, 2: False}: did the player finish the hands-up gesture?
     progress:       {1: 0.4, 2: 0.0}: how far the hands-up gesture is (0..1)
-    colors_similar: True if the shirts look the same (then the tracker can mix up the players)"""
+    colors_similar: True if the shirts look the same (then the tracker can mix up the players)
+    full_body:      {1: True, 2: False}: does the camera see what the grading needs? If not: step_back_text
+    step_back_text: for example "Step back - show your knees" (the Registration state makes it from the grader)"""
     height, width = frame.shape[:2]
+    away = [player for player in players.values() if player["registered"] and not player["visible"]]
+    for index, player in enumerate(away):                   # registered, but out of view right now
+        spot_x = int(width * (index + 1) / (len(away) + 1))
+        draw_text(frame, f"Waiting for Player {player['id']}...", (spot_x, height - 60), 0.8, player_color(player))
+    if not any(player["registered"] for player in players.values()):
+        draw_text(frame, f"Step in to play (up to {len(players)} players)", (width // 2, height - 60), 0.9)
     for player_id, player in players.items():
         color = player_color(player)
         if not player["visible"] or player["box"] is None:
-            spot_x = width // 4 if player_id == 1 else width * 3 // 4
-            draw_text(frame, f"Waiting for Player {player_id}...", (spot_x, height - 60), 0.9, color)
-            continue
+            continue                                        # an empty slot, or away (see above)
         face = heads.get(player_id)
         if face is not None:
             # just above the tips of the crown, as wide as the crown
@@ -39,6 +49,9 @@ def draw_registration(frame, players, heads, ready, progress, colors_similar):
             draw_text(frame, "READY", (center_x, bar_y + 7), 0.9, GREEN)
         else:
             draw_bar(frame, (center_x - bar_width // 2, bar_y), (bar_width, 14), progress[player_id], color)
+        if full_body is not None and step_back_text and not full_body.get(player_id, True):
+            hint_x = min(max(center_x, 150), width - 150)      # keep the hint on the screen
+            draw_text(frame, step_back_text, (hint_x, bar_y + 42), 0.7, HINT)
 
     if colors_similar:
         draw_banner(frame, "Please wear different colours", (0, 0, 160))

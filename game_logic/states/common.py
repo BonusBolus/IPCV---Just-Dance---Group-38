@@ -10,10 +10,16 @@ Flow:  song_select -> registration -> countdown -> playing -> results -> song_se
 A state decides WHAT happens; the files in scene/ decide HOW it looks.
 """
 
-from scene import move_cards
+import config
+from scene import move_cards, timeline
 from scene.functions import player_color
 
-PLAYER_IDS = (1, 2)
+PLAYER_IDS = tuple(range(1, config.MAX_PLAYERS + 1))   # every player slot (see players_in_game())
+
+
+def players_in_game(game):
+    """The ids of the players who really play: registered at Registration (slots nobody took are left out)."""
+    return [i for i, player in game.players.items() if player["registered"]]
 
 
 class State:
@@ -37,6 +43,37 @@ def hands_up(player):
     if nose is None or left is None or right is None:
         return False
     return left[1] < nose[1] and right[1] < nose[1]
+
+
+# The two keypoints of each joint angle in the PoseGrader (see pose_grading._get_reference_angles)
+ANGLE_POINTS = {"shoulder": ("shoulder", "elbow"), "elbow": ("elbow", "wrist"),
+                "hip": ("hip", "knee"), "knee": ("knee", "ankle")}
+LOWER_BODY = ("hip", "knee", "ankle")                  # from top to bottom
+BODY_PART_WORDS = {"hip": "hips", "knee": "knees", "ankle": "feet"}
+
+
+def lowest_needed_part(pose_grader):
+    """The lowest body part the grading looks at in any pose, for example "knee" (the hip angle
+    goes from the hip to the knee). Players must stand far enough back to show it. This follows
+    the grader: if it starts using the knee angles, it becomes "ankle"."""
+    parts = set()
+    for pose in pose_grader.processed_poses.values():
+        for angles in pose["angles"]:
+            for joint in angles:                      # for example "left_hip"
+                parts.update(ANGLE_POINTS[joint.split("_", 1)[1]])
+    lower = [part for part in LOWER_BODY if part in parts]
+    return lower[-1] if lower else None
+
+
+def body_visible_down_to(player, part):
+    """True if the camera sees the nose and the `part` (for example "knee") of at least one side.
+
+    The tracker only keeps keypoints the model is sure about (confidence 0.5), so a guessed
+    knee (legs out of the image) does not count."""
+    points = player["keypoints"]
+    if points["nose"] is None:
+        return False
+    return part is None or points[f"left_{part}"] is not None or points[f"right_{part}"] is not None
 
 
 def raised_hands(player):
@@ -82,9 +119,13 @@ def anyone_hands_up(game):
     return any(player["visible"] and hands_up(player) for player in game.players.values())
 
 def draw_move_cards(game, image, t):
-    """The NOW and NEXT cards, used in the countdown and while playing."""
+    """The NOW and NEXT cards (or the NOW card and the timeline), used in the countdown and while playing.
+    t is the song time; during the countdown it is negative, so the timeline already moves."""
     song = game.song
     now_move = song.current_move(t)
+    colors = tuple(player_color(player) for player in list(game.players.values())[:2])   # duet figures: 2 colours
+    if config.SHOW_TIMELINE:
+        image = timeline.draw_timeline(image, song.moves, t, song.beat_phase(t), colors)
     return move_cards.draw_move_cards(
         image,
         now_move=now_move,
@@ -93,5 +134,6 @@ def draw_move_cards(game, image, t):
         next_progress=song.next_progress(t),
         beat_phase=song.beat_phase(t),
         flash=now_move is not None and t - now_move.start < 0.15,
-        player_colors=tuple(player_color(game.players[i]) for i in PLAYER_IDS),
+        player_colors=colors,
+        show_next=not config.SHOW_TIMELINE,
     )

@@ -1,7 +1,8 @@
 """The NOW and NEXT cards, bottom right of the screen (Countdown and Playing).
 
 NOW:  the move that counts now. Its bar gets empty while the player holds the pose.
-      A short flash shows that a new move started. Between moves: "Get ready".
+      A short flash shows that a new move started. Between moves: "Get ready", or, with the
+      timeline on, already the coming move ("NEXT"), so players see what to do.
 NEXT: the coming move, visible from the countdown on. Its bar fills up until the move
       starts, and the figure pulses a little on every beat.
 Gold moves get a gold border and the label "GOLD".
@@ -13,13 +14,24 @@ from scene.pose_figure import draw_pose
 
 
 def draw_move_cards(frame, now_move, now_progress, next_move, next_progress, beat_phase, flash,
-                    player_colors=(WHITE, WHITE)):
+                    player_colors=(WHITE, WHITE), show_next=True):
     """now_progress / next_progress: 0..1, beat_phase: 0 on the beat (all from song.py)."""
     height, width = frame.shape[:2]
-    now_box = (width - 425, height - 310, 230, 290)
+    # without the NEXT card (the timeline shows the coming moves), the NOW card is at the right edge
+    now_box = (width - 425, height - 310, 230, 290) if show_next else (width - 250, height - 310, 230, 290)
     next_box = (width - 180, height - 230, 160, 210)
 
-    if now_move is None:
+    if now_move is None and not show_next and next_move is not None:
+        # between two moves (with the timeline): show the coming move already, big, so players
+        # see what to do; the bar fills up until it starts, and it pulses on the beat
+        label = "NEXT  GOLD" if next_move.gold else "NEXT"
+        if next_move.players == 2:
+            label += "  DUET"
+        color = DUET if next_move.players == 2 else GOLD if next_move.gold else GREY
+        draw_card(frame, now_box, label, next_move.pose, next_move.name, next_progress, color,
+                  zoom=1.0 + 0.08 * (1.0 - beat_phase), pose2=next_move.pose2 if next_move.players == 2 else None,
+                  player_colors=player_colors)
+    elif now_move is None:
         draw_card(frame, now_box, "NOW", None, "Get ready", None, GREY)
     else:
         label = "NOW!  GOLD" if now_move.gold else "NOW!"
@@ -30,7 +42,7 @@ def draw_move_cards(frame, now_move, now_progress, next_move, next_progress, bea
                   flash=flash, pose2=now_move.pose2 if now_move.players == 2 else None,
                   player_colors=player_colors)
 
-    if next_move is not None:
+    if show_next and next_move is not None:
         label = "NEXT  GOLD" if next_move.gold else "NEXT"
         if next_move.players == 2:
             label += "  DUET"

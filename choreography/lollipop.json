@@ -2,6 +2,7 @@
     "title": "Lollipop",
     "audio": "lollipop.ogg",
     "bpm": 143,
+    "move_bpm": 429,
     "offset": 0.0,
     "moves": [
         { "beat": 8, "pose": "disco_point_right", "beats": 4 },

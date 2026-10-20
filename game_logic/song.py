@@ -2,12 +2,16 @@
 
 Song file format: see choreography/song_1.json and docs/game_structure.md, section 5.
 The moves are on beats, the poses come from choreography/poses.json.
+"bpm" is the tempo of the music (the beat pulse); the optional "move_bpm" is the tempo of the moves:
+higher means shorter moves that come more often. When the music is longer than the moves, the moves
+start again from the first one (see repeat_moves).
 
 All methods that need the song time get it as argument `t` (seconds). Call `song.time()`
 once per frame and pass that value on, so everything in one frame uses the same time.
 """
 import json
 import os
+import statistics
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -34,8 +38,9 @@ class Move:
 
 
 def moves_from_beats(data, poses, file_name):
-    """Beat format: {"bpm": 120, "offset": 0.0, "moves": [{"beat": 4, "pose": "cactus", "beats": 2}, ...]}"""
-    beat_time = 60 / data["bpm"]
+    """Beat format: {"bpm": 120, "offset": 0.0, "moves": [{"beat": 4, "pose": "cactus", "beats": 2}, ...]}
+    The beats of the moves use "move_bpm" when the song has it (faster moves), else "bpm"."""
+    beat_time = 60 / data.get("move_bpm", data["bpm"])
     offset = data.get("offset", 0.0)
     moves = []
     for i, item in enumerate(data["moves"]):
@@ -68,6 +73,49 @@ def check_moves(moves, file_name):
             raise ValueError(f"{file_name} move {i}: starts before move {i - 1} has ended")
 
 
+def repeat_moves(moves, music_length):
+    """When the moves run out before the music ends, start again with the first move, until the music
+    ends. The next round starts one normal step (the usual time between two moves) after the last move."""
+    if music_length is None or len(moves) < 2:
+        return moves
+    steps = [b.start - a.start for a, b in zip(moves, moves[1:])]
+    first, last = moves[0], moves[-1]
+    shift = max(last.start - first.start + statistics.median(steps), last.end - first.start)
+    round_moves, repeated = list(moves), list(moves)
+    while True:
+        round_moves = [Move(m.name, m.key, m.pose, m.start + shift, m.end + shift, m.gold, m.players,
+                            m.pose2, m.interaction) for m in round_moves]
+        fitting = [m for m in round_moves if m.end + config.GRADE_GRACE <= music_length]
+        repeated += fitting
+        if len(fitting) < len(round_moves):
+            return repeated
+
+
+def music_length(path):
+    """Seconds of music in an .ogg file (Vorbis or Opus), read from the file itself; None when unknown."""
+    path = Path(path)
+    if path.suffix.lower() not in (".ogg", ".oga", ".opus") or not path.exists():
+        return None
+    with open(path, "rb") as f:
+        head = f.read(4096)
+        f.seek(0, 2)
+        f.seek(max(0, f.tell() - 65536))
+        tail = f.read()
+    if b"\x01vorbis" in head:
+        i = head.index(b"\x01vorbis")
+        rate, skip = int.from_bytes(head[i + 12:i + 16], "little"), 0
+    elif b"OpusHead" in head:
+        i = head.index(b"OpusHead")
+        rate, skip = 48000, int.from_bytes(head[i + 10:i + 12], "little")
+    else:
+        return None
+    last_page = tail.rfind(b"OggS")                     # the last page holds the number of the last sample
+    if last_page < 0 or rate <= 0:
+        return None
+    samples = int.from_bytes(tail[last_page + 6:last_page + 14], "little", signed=True) - skip
+    return samples / rate if samples > 0 else None
+
+
 def find_songs(folder=None):
     """All song files in the choreography folder (every .json except poses.json), sorted by title."""
     folder = Path(folder or config.CHOREOGRAPHY_DIR)
@@ -84,11 +132,14 @@ class Song:
         check_moves(self.moves, self.path.name)
 
         self.title = data.get("title", self.path.stem)
-        self.bpm = data["bpm"]
+        self.bpm = data["bpm"]                       # tempo of the music: the beat pulse
+        self.move_bpm = data.get("move_bpm", self.bpm)   # tempo of the moves
         self.offset = data.get("offset", 0.0)
         audio_name = data.get("audio")
         self.audio_path = self.path.parent / audio_name if audio_name else None
         self.has_audio = self._load_audio()
+        if self.has_audio:
+            self.moves = repeat_moves(self.moves, music_length(self.audio_path))
         self.started_at = None   # time.perf_counter() at start(), None when not playing
         self.last_time = 0.0
 

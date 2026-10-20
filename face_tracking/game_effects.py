@@ -1,4 +1,5 @@
 from __future__ import annotations
+import functools
 from collections.abc import Mapping
 from typing import Any
 import cv2
@@ -115,16 +116,10 @@ def add_crown(frame: np.ndarray, smooth_face_properties: Any) -> np.ndarray:
     return frame
 
 
-def add_player_label(frame: np.ndarray, text: str, face: Mapping[str, Any], color=(255, 255, 255)) -> np.ndarray:
-    """Write ``text`` on the band of the crown (or the forehead), tilted with the head."""
-    try:
-        centre, band_width, band_height, angle = crown_band(face)
-    except (TypeError, ValueError):
-        return frame
+@functools.lru_cache(maxsize=64)
+def _label_tile(text: str, color: tuple, scale: float, angle: float) -> tuple[np.ndarray, np.ndarray]:
+    """The label as a small tile and its mask, tilted by `angle`. Kept by add_player_label()."""
     font = cv2.FONT_HERSHEY_SIMPLEX
-    (unit_width, unit_height), _ = cv2.getTextSize(text, font, 1.0, 2)
-    scale = max(0.4, min(band_height * 0.8 / unit_height, band_width * 0.9 / unit_width))
-
     # The text is small, so it is written SUPERSAMPLE times bigger on a square tile (room to
     # rotate), together with a mask of its pixels, and shrunk afterwards: this keeps it sharp.
     big_scale = scale * SUPERSAMPLE
@@ -147,6 +142,25 @@ def add_player_label(frame: np.ndarray, text: str, face: Mapping[str, Any], colo
     size //= SUPERSAMPLE
     tile = cv2.resize(tile, (size, size), interpolation=cv2.INTER_AREA)
     mask = cv2.resize(mask, (size, size), interpolation=cv2.INTER_AREA)
+    tile.flags.writeable = False                      # the same tile is used again: never change it
+    mask.flags.writeable = False
+    return tile, mask
+
+
+def add_player_label(frame: np.ndarray, text: str, face: Mapping[str, Any], color=(255, 255, 255)) -> np.ndarray:
+    """Write ``text`` on the band of the crown (or the forehead), tilted with the head."""
+    try:
+        centre, band_width, band_height, angle = crown_band(face)
+    except (TypeError, ValueError):
+        return frame
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    (unit_width, unit_height), _ = cv2.getTextSize(text, font, 1.0, 2)
+    scale = max(0.4, min(band_height * 0.8 / unit_height, band_width * 0.9 / unit_width))
+
+    # Drawing the label is slow (see _label_tile), and it hardly changes from frame to frame, so the
+    # finished label is kept: size in 2% steps and tilt in 1 degree steps (you do not see the difference).
+    tile, mask = _label_tile(text, tuple(int(c) for c in color), round(scale / 0.02) * 0.02, round(angle))
+    size = tile.shape[0]
 
     # Position of the top left corner of the tile in the frame.
     top = int(round(centre[1] - size / 2))

@@ -2,6 +2,8 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+import config
+
 
 # YuNet detects faces.
 MODEL_PATH = Path(__file__).parent / "face_detection_yunet_2023mar.onnx"
@@ -41,12 +43,21 @@ def _orientation_from_keypoints(keypoints):
 def get_face_properties(frame, write_results=False):
     """Detect faces and return their location, size, and estimated orientation."""
     height, width = frame.shape[:2]
-    face_detector.setInputSize((width, height))
-    _, detections = face_detector.detect(frame)
+    # The players' faces are big, so YuNet finds them just as well on a smaller copy of the image
+    # (FACE_DETECT_WIDTH, 640 px wide). At 1280x720 that is about 3x faster, and the result is even
+    # steadier. The box and the five points are scaled back to the full image.
+    scale = min(1.0, config.FACE_DETECT_WIDTH / width)
+    small = frame if scale == 1.0 else cv2.resize(
+        frame, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA)
+    face_detector.setInputSize((small.shape[1], small.shape[0]))
+    _, detections = face_detector.detect(small)
 
     faces = []
     if detections is None:
         return faces
+    if scale != 1.0:
+        detections = detections.copy()
+        detections[:, :14] /= scale                   # box (x, y, w, h) and 5 points (x, y): back to full size
 
     for detection in detections:
         x, y, face_width, face_height = np.rint(detection[:4]).astype(int)

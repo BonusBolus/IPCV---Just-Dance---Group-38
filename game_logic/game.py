@@ -34,14 +34,12 @@ def find_faces(image):
 
 
 def crown_holder(players):
-    """Id of the player who leads by at least config.CROWN_LEAD (10%), or None.
-    Nobody gets the crown while both scores are 0 (for example during Registration)."""
-    (id_1, player_1), (id_2, player_2) = sorted(players.items())
-    if player_1["score"] > player_2["score"]:
-        return id_1
-    if player_2["score"] > player_1["score"]:
-        return id_2
-    return None
+    """Id of the player with the highest score, or None when the best score is shared or 0
+    (nobody gets the crown while all scores are 0, for example during Registration)."""
+    scores = sorted(((player["score"], player_id) for player_id, player in players.items()), reverse=True)
+    if not scores or scores[0][0] <= 0 or (len(scores) > 1 and scores[1][0] == scores[0][0]):
+        return None
+    return scores[0][1]
 
 
 # Only used by the debug key "n": jump to the next state
@@ -55,7 +53,7 @@ class Game:
         self.debug = debug
         self.fullscreen = fullscreen
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
-        self.tracker = IdentityTracker(max_players=2)
+        self.tracker = IdentityTracker(max_players=config.MAX_PLAYERS)
         self.pose_grader = PoseGrader()
         self.songs = find_songs()                      # all songs, for the song selection
         first = [i for i, song in enumerate(self.songs) if song.path.resolve() == config.SONG_PATH.resolve()]
@@ -68,6 +66,8 @@ class Game:
         self.scene = Scene(color_key=config.PLAYER_COLOR)
         self.fps = FPSCounter()
         self.face_thread = ThreadPoolExecutor(max_workers=1)   # one worker: frames stay in order
+        self.step_thread = ThreadPoolExecutor(max_workers=1)   # calculates the next frame, see run()
+        self.skip_state = False                                # debug key n: next state, done in step()
         self.states = {
             "song_select": SongSelectState(),
             "registration": RegistrationState(),
@@ -91,6 +91,9 @@ class Game:
     def step(self, frame):
         """Everything that happens with one camera frame. Returns the image to show."""
         self.now = frame.time
+        if self.skip_state:                            # debug key n (set in run(), done here between frames)
+            self.skip_state = False
+            self.change_state(NEXT_STATE[self.state_name])
         if self.state is None:
             self.change_state("song_select")
 
@@ -138,13 +141,17 @@ class Game:
             cv2.setWindowProperty(WINDOW_NAME, cv2.WND_PROP_FULLSCREEN, cv2.WINDOW_FULLSCREEN)
         window_sized = self.fullscreen                 # a full-screen window already has its size
         frame_time = 1.0 / config.MAX_FPS
-        while True:
+        # The next frame is calculated in a second thread while the window shows the current one.
+        # Painting a full-screen window takes about 25 ms (it is scaled up in software), and this way
+        # that time is no longer added to every frame. The game itself still runs one frame at a
+        # time: everything happens in step(), and step() never runs twice at the same time.
+        frame = self.camera.read()
+        pending = self.step_thread.submit(self.step, frame) if frame is not None else None
+        while pending is not None:
             frame_start = time.perf_counter()
+            image = pending.result()                   # the frame that was calculated meanwhile
             frame = self.camera.read()
-            if frame is None:
-                break
-
-            image = self.step(frame)
+            pending = self.step_thread.submit(self.step, frame) if frame is not None else None
             self.fps.update()
             if not window_sized:                       # start with the size of the camera image
                 cv2.resizeWindow(WINDOW_NAME, image.shape[1], image.shape[0])
@@ -158,9 +165,12 @@ class Game:
             if key in (ord("q"), 27):          # safety exit, not a game control
                 break
             if self.debug and key == ord("n"):
-                self.change_state(NEXT_STATE[self.state_name])
+                self.skip_state = True                 # step() switches the state before the next frame
+        if pending is not None:
+            pending.result()                           # let the frame that is still running finish
 
         self.song.stop()
+        self.step_thread.shutdown()
         self.face_thread.shutdown()
         self.camera.release()
         cv2.destroyAllWindows()

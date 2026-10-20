@@ -12,10 +12,11 @@ We tested it: everything draws **the same pixels** as before.
 
 | File | What is in it | Used by |
 |---|---|---|
-| `scene.py` | **The original** `Scene` class: title, score bar, current pose, `draw_player()`. **New:** `draw_ratings()`, `draw_title()`, `draw_edge_effects()` | all states |
+| `scene.py` | **The original** `Scene` class: title, score bar, current pose, `draw_player()`. **New:** `draw_ratings()`, `draw_title()`, `draw_edge_effects()`, the score boxes for 1 or 3-5 players | all states |
 | `functions.py` | **The original** text helpers. **New at the end:** colours and small building blocks | all files below |
 | `pose_figure.py` | **New.** Draws a pose as a stick figure | `move_cards.py` |
-| `move_cards.py` | **New.** The NOW and NEXT cards | Countdown, Playing |
+| `move_cards.py` | **New.** The NOW and NEXT cards (with the timeline on: only NOW, at the right edge) | Countdown, Playing |
+| `timeline.py` | **New.** The coming moves slide from the right to a hit line at the bottom; the bar is the hold time. `SHOW_TIMELINE` in `config.py` | Countdown, Playing |
 | `song_select_screen.py` | **New.** Everything on the song selection screen | Song selection |
 | `registration_screen.py` | **New.** Everything on the Registration screen | Registration |
 | `results_screen.py` | **New.** Everything on the Results screen | Results |
@@ -39,6 +40,9 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 | the text outline, the progress bars, the red warning banner | `functions.py` |
 | how a pose looks (lines, head, thickness) | `pose_figure.py` |
 | the size or place of the NOW / NEXT cards, the pulse, the flash | `move_cards.py` |
+| the timeline: track size, hit line, how many seconds ahead (`LOOKAHEAD`) | `timeline.py` |
+| the "pop" of the ratings (`POP_TIME`, `POP_SIZE`, `FADE_TIME`) | `scene.py`, `pop()` |
+| the "Step back - show your feet" hint | `registration_screen.py` |
 | the progress bar / "READY" above the head, "Waiting for Player 2..." | `registration_screen.py` |
 | the "Player 1" / "Player 2" labels on the crown, the crown, the big heads | `face_tracking/game_effects.py`, see [face_tracking.md](face_tracking.md) |
 | the glow and sparkles at the screen edges | `scene.py`, `draw_edge_effects()` |
@@ -52,18 +56,24 @@ move_cards.py ─────────────> pose_figure.py (stick fig
 
 Only this was added (and `RATING_COLORS, draw_text` in the import line):
 
-```python
-def draw_ratings(self, frame, ratings):
-    """"Perfect", "Good", ... under the score of each player. ratings: {player_id: "Perfect"}"""
-    width = frame.shape[1]
-    for player_id, rating in ratings.items():
-        x = width // 2 + (-1 if player_id == 1 else 1) * width // 8
-        draw_text(frame, rating, (x, self.score_bottom + 35), 1.0, RATING_COLORS[rating])
-    return frame
-```
+`draw_ratings(frame, ratings, ages=None, total_time=1.0)` draws "Perfect", "Good", ... at the player's score.
+`ratings` is `{player_id: "Perfect"}`, `ages` is `{player_id: seconds since the rating came}` (a new rating pops, see `pop()`).
+`render()` must be called first in the same frame.
+
 
 It is in `scene.py` because the ratings are placed under the score bar (`self.score_bottom`).
+The score bar follows where the players stand (`update_sides()`): the player on the left has the left part
+and the left number, and their rating is right next to it. The sides only swap when the players clearly
+stand the other way round, so the bar does not flip back and forth.
 `render(frame, players)` without a pose is used for the title and score bar during Countdown and Playing.
+
+**1 to 5 players.** `render()` only shows the registered players:
+- exactly 2 players: the score bar, as above;
+- 1 or 3-5 players: a **row of score boxes** at the top (`_add_badges()`), in the order the players stand. Each box has
+  the player colour, the player number, the score and a small bar that shows the score compared to the best score.
+  The rating is shown under the player's box. Small images get smaller boxes ("P1" instead of "Player 1").
+- `update_sides()` works for any number of players: two neighbours only swap when they clearly stand the other way
+  round, and a player who is out of view keeps their place.
 
 Two more methods were added later:
 
@@ -128,11 +138,12 @@ draw_registration(frame, players, heads, ready, progress, colors_similar)
 ## `results_screen.py`
 
 ```python
-draw_results(frame, players, winner, progress, show_hint)
+draw_results(frame, ranking, progress, show_hint)
 ```
 
-- The image gets darker, and the scores and the winner are shown in the middle.
-- `winner` is the player dict of the winner, or `None` for a draw. The Results **state** decides who won; this file only shows it.
+- The image gets darker, and the ranking and the winner are shown in the middle.
+- `ranking` is `[(place, player dict), ...]` from the highest score down; players with the same score share a place.
+  The Results **state** makes it (`rank_players()`); this file only shows it. 1 player: "Well done!", a shared 1st place: "Draw!".
 - `show_hint=True` (after 3 s): "Raise both hands to play again" and the progress bar.
 - `draw_lines()` draws the lines of text. Each line is `(text, color, size)`.
 

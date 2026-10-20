@@ -18,5 +18,6 @@ class CountdownState(State):
     def draw(self, game, image):
         seconds_left = config.COUNTDOWN_TIME - (game.now - self.start)
         image = game.scene.render(image, list(game.players.values()))    # title + score bar
-        image = draw_move_cards(game, image, 0.0)    # the NEXT card already shows the first move
+        # song time before the music starts is negative: the timeline already slides to the first move
+        image = draw_move_cards(game, image, -seconds_left)
         return draw_big_text(image, str(max(1, math.ceil(seconds_left))))
