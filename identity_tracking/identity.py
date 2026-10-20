@@ -1,8 +1,8 @@
-"""Task 3: identity tracking with shirt colour and position.
+"""Task 3: identity tracking with shirt colour, pattern and position.
 
 Idea: every person wears different clothes and moves only a little between two frames.
-Remember the shirt colour and last position of each player, and in every new frame give each
-detected person the player that fits best.
+Remember the shirt colour and pattern (histogram) and last position of each player, and in
+every new frame give each detected person the player that fits best.
 
 Pipeline per frame:
     image -> PoseEstimator.process()   -> keypoints (num_people, 17, 3), no identity yet
@@ -13,7 +13,7 @@ Pipeline per frame:
              color_histogram()         -> colour distribution, for players with similar colours
           -> IdentityTracker.update()  -> cost for every person-player pair, best pairing
                                           -> players dict, see new_player_entry()
-          -> draw_labels()             -> show "Player 1" / "Player 2" on screen
+          -> draw_labels()             -> show "Player 1" / "Player 2" on screen (debug)
 """
 from dataclasses import dataclass
 import cv2
@@ -54,16 +54,16 @@ def new_player_entry(player_id):
     The dict always has an entry for every player slot (1 and 2), also when nobody or only one
     person is in view, so scene and game_logic can always use players[1] and players[2].
 
-        "id":         1 or 2
-        "visible":    True if the player is in this frame
-        "registered": True once someone has been given this player number
-        "color":      (R, G, B) shirt colour, or the default slot colour before registration
-        "player_color": (R, G, B) fixed display colour of this player slot (never changes)
-        "score":      total score. Not touched by the tracker: game_logic adds to it
-        "keypoints":  {"nose": (x, y), ...}, a name is None when not visible (same names as
-                      choreography/poses.json). All None when the player is not visible.
-        "keypoints_raw": (17, 3) array x, y, confidence from PoseEstimator, or None
-        "box":        (x, y, w, h) around the player, or None
+        "id":               1 or 2
+        "visible":          True if the player is in this frame
+        "registered":       True once someone has been given this player number
+        "color":            (R, G, B) shirt colour, or the default slot colour before registration
+        "player_color":     (R, G, B) fixed display colour of this player slot (never changes)
+        "score":            total score. Not touched by the tracker: game_logic adds to it
+        "keypoints":        {"nose": (x, y), ...}, a name is None when not visible (same names as
+                            choreography/poses.json). All None when the player is not visible.
+        "keypoints_raw":    (17, 3) array x, y, confidence from PoseEstimator, or None
+        "box":              (x, y, w, h) around the player, or None
     """
     return {
         "id": player_id,
@@ -225,40 +225,30 @@ class IdentityTracker:
         see new_player_entry(). It is the same dict every frame, so a score added by game_logic
         stays. People who do not fit any player ("?") are left out.
 
-        `people` is the list from people_from_pose().
-
-        Steps:
-          1. compute the shirt colour and histogram of every person
-          2. compute the cost of every person-player pair (a table: people x players)
-          3. find the pairing with the lowest total cost, where every player is given to at
-             most one person (Hungarian algorithm, scipy's linear_sum_assignment)
-          4. a pair is only accepted if the colours are close enough (max_distance);
-             otherwise the person is someone else ("?")
-          5. people without a player become new players while there is room
-          6. matched players are updated: new position, colour moved 10% towards the new one
-          7. the players dict is filled in: visible players get their keypoints, the others not"""
-        # 1. shirt colour and histogram of every person
+        `people` is the list from people_from_pose()."""
+        
+        # shirt colour and histogram of every person
         colors = [average_color(image, torso_box(p)) for p in people]
         histograms = [color_histogram(image, torso_box(p)) for p in people]
 
         assigned = [None] * len(people)
         if self.players and people:
-            # 2. cost table: row = person, column = player
+            # cost table: row = person, column = player
             use_histogram = self.colors_are_similar()
             costs = np.zeros((len(people), len(self.players)))
             for i, person in enumerate(people):
                 for j, player in enumerate(self.players):
                     costs[i, j] = self.cost(player, colors[i], histograms[i], person.box, use_histogram)
 
-            # 3. best pairing overall: each person at most one player, each player at most one person
+            # best pairing overall: each person at most one player, each player at most one person
             rows, cols = linear_sum_assignment(costs)
 
-            # 4. only accept pairs whose colour is close enough
+            # only accept pairs whose colour is close enough
             for i, j in zip(rows, cols):
                 if color_distance(self.players[j].color, colors[i]) < self.max_distance:
                     assigned[i] = self.players[j]
 
-        # 7. start from "nobody visible", then fill in the players found in this frame
+        # start from "nobody visible", then fill in the players found in this frame
         for entry in self.entries.values():
             entry.update(visible=False, box=None, keypoints_raw=None,
                          keypoints={name: None for name in KEYPOINT_NAMES})
