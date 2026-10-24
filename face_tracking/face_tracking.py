@@ -40,7 +40,7 @@ def _orientation_from_keypoints(keypoints):
     }
 
 
-def get_face_properties(frame, write_results=False):
+def get_face_properties(frame):
     """Detect faces and return their location, size, and estimated orientation."""
     height, width = frame.shape[:2]
     # The players' faces are big, so YuNet finds them just as well on a smaller copy of the image
@@ -72,13 +72,6 @@ def get_face_properties(frame, write_results=False):
             "size": (face_width, face_height),
             "orientation": _orientation_from_keypoints(keypoints),
         })
-
-    if write_results:
-        for index, face in enumerate(faces):
-            print(
-                f"Face {index}: Location={face['location']}, "
-                f"Size={face['size']}, Orientation={face['orientation']}"
-            )
 
     return faces
 

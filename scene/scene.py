@@ -1,7 +1,7 @@
 import math
 import cv2
 import numpy as np
-from scene.functions import RATING_COLORS, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
+from scene.functions import RATING_COLORS, draw_text, put_text_left, put_text_right, scale_for_height
 from scene.pose_figure import BONES
 
 POP_TIME = 0.18    # seconds: a new rating starts big and shrinks to its normal size ("pop")
@@ -24,14 +24,11 @@ def pop(age, total_time):
 class Scene:
     def __init__(self, color_key="player_color"):
         self.color_key = color_key
-        self.title_top = 0
         self.title_height = 60
         self.title_bottom = 20 + self.title_height + 10
         self.glow = None    # edge glow fade, made on first use (see draw_edge_effects)
         self.score_top = self.title_bottom + 20
         self.score_bottom = self.score_top + 16
-        self.pose_top = self.score_bottom + 20
-        self.pose_bottom = self.pose_top + 20
         self.sides = None   # player ids from left to right on the screen (score bar and ratings)
 
     def update_sides(self, players):
@@ -50,7 +47,8 @@ class Scene:
                 self.sides = [right, left]
         return self.sides
 
-    def render(self, frame, players, current_pose=None):
+    def render(self, frame, players):
+        """The title and the score bar (Countdown and Playing)."""
         output = frame.copy()
         colors = []
         scores = []
@@ -63,10 +61,6 @@ class Scene:
 
         output = self.draw_title(output, players, text_height=self.title_height)
         output = self._add_score(output, scores, self.score_top, self.score_bottom, colors)
-
-        if current_pose is not None:
-            output = self._add_current_pose(output, self.pose_top, self.pose_bottom, current_pose)
-
         return output
 
     def draw_title(self, frame, players, prompt=None, text_height=60):
@@ -282,55 +276,5 @@ class Scene:
             frame, str(score[1]), (bar_right + 10, bar_y + bar_height - 2),
             cv2.FONT_HERSHEY_SIMPLEX, 0.5, colors[1][::-1], 1
         )
-
-        return frame
-
-    def _add_current_pose(self, frame, pose_top, pose_bottom, current_pose):
-        width = frame.shape[1]
-        font_size = scale_for_height(pose_bottom - pose_top, cv2.FONT_HERSHEY_SIMPLEX, 1)
-        put_text_center(
-            frame, f"Current Pose: {current_pose['name']}",
-            (width // 2, (pose_top + pose_bottom) // 2),
-            cv2.FONT_HERSHEY_SIMPLEX, font_size, (255, 255, 255), 2,
-        )
-
-        pose_scaling = 50
-        pose_points = current_pose["keypoints"]
-        pose_points = {**pose_points, "neck": (0, 0.3)}
-
-        for keypoint in pose_points:
-            if pose_points[keypoint] is not None:
-                x, y = pose_points[keypoint]
-                x = int(width // 2 + x * pose_scaling)
-                y = int((pose_top + pose_bottom) // 2 + (y + 2) * pose_scaling)
-                cv2.circle(frame, (x, y), 2, (255, 255, 255), -1)
-
-            if keypoint == "nose":
-                x, y = pose_points[keypoint]
-                x = int(width // 2 + x * pose_scaling)
-                y = int((pose_top + pose_bottom) // 2 + (y + 2) * pose_scaling)
-                cv2.circle(frame, (x, y), 10, (255, 255, 255), -1)
-
-        combinations = [
-            ("left_shoulder", "left_elbow"), ("left_elbow", "left_wrist"),
-            ("right_shoulder", "right_elbow"), ("right_elbow", "right_wrist"),
-            ("left_shoulder", "left_hip"), ("right_shoulder", "right_hip"),
-            ("left_hip", "left_knee"), ("left_knee", "left_ankle"),
-            ("right_hip", "right_knee"), ("right_knee", "right_ankle"),
-            ("left_shoulder", "right_shoulder"), ("left_hip", "right_hip"),
-            ("left_shoulder", "neck"), ("right_shoulder", "neck"), ("nose", "neck")
-        ]
-
-        for start, end in combinations:
-            start_pos = pose_points.get(start)
-            end_pos = pose_points.get(end)
-            if start_pos is not None and end_pos is not None:
-                x1, y1 = start_pos
-                x2, y2 = end_pos
-                x1 = int(width // 2 + x1 * pose_scaling)
-                y1 = int((pose_top + pose_bottom) // 2 + (y1 + 2) * pose_scaling)
-                x2 = int(width // 2 + x2 * pose_scaling)
-                y2 = int((pose_top + pose_bottom) // 2 + (y2 + 2) * pose_scaling)
-                cv2.line(frame, (x1, y1), (x2, y2), (255, 255, 255), 1)
 
         return frame

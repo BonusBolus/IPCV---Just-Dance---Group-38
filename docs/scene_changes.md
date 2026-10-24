@@ -12,7 +12,7 @@ We tested it: everything draws **the same pixels** as before.
 
 | File | What is in it | Used by |
 |---|---|---|
-| `scene.py` | **The original** `Scene` class: title, score bar, current pose, `draw_player()`. **New:** `draw_ratings()`, `draw_title()`, `draw_edge_effects()` | all states |
+| `scene.py` | **The original** `Scene` class: title, score bar, `draw_player()`. **New:** `draw_ratings()`, `draw_title()`, `draw_edge_effects()` | all states |
 | `functions.py` | **The original** text helpers. **New at the end:** colours and small building blocks | all files below |
 | `pose_figure.py` | **New.** Draws a pose as a stick figure | `move_cards.py` |
 | `move_cards.py` | **New.** The NOW and NEXT cards (with the timeline on: only NOW, at the right edge) | Countdown, Playing |
@@ -116,7 +116,7 @@ draw_pose(frame, pose, center_x, nose_y, scale, color, thickness=1)
 - `pose`: a pose from `poses.json`, like `{"nose": (0, 0), "left_wrist": (-1.3, -0.3), ...}`
 - `center_x`, `nose_y`: where the nose goes on the screen (pixels)
 - `scale`: pixels per pose unit
-- `BONES` is the list of lines between the points. It is the same as the `combinations` list in `scene._add_current_pose()`.
+- `BONES` is the list of lines between the points.
 
 ## `move_cards.py`: NOW and NEXT
 

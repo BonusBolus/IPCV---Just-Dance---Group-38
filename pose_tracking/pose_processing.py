@@ -1,6 +1,5 @@
 from ultralytics import YOLO
 import numpy as np
-import cv2
 import config
 
 
@@ -209,21 +208,3 @@ class PoseEstimator:
             self.previous_motion = motion
     
             return keypoints, motion
-
-
-# def draw_keypoints(image, keypoints, confidence_threshold=0.1):
-#     """
-#     Draw detected pose keypoints on the image.
-#     keypoints shape:
-#         (num_people, num_keypoints, 3)
-
-#     Last dimension:
-#         [x, y, confidence]
-#     """
-
-#     for person in keypoints:
-#         for x, y, confidence in person:
-#             if confidence < confidence_threshold:
-#                 continue
-#             cv2.circle(image, (int(x), int(y)), 4, (0, 255, 0), -1,)
-#     return image
