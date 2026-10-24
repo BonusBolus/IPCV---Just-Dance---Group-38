@@ -1,7 +1,10 @@
 # Can we play with 5 players?
 
 Short answer: **yes, the computer can do it easily. The hard parts are the room, the camera and the screen design.**
-This page was a study first. **It is built now** (branch `five-players`): see "7. What we built" at the end.
+This page is a study: what works already, what must change, and the choices we still have to make.
+
+> **Update:** we built 1 to 5 players and then removed it again, because we only play with 2. The game is for
+> 2 players. This page stays as the reason why more players is hard (room, camera, faces, identity).
 
 ## 1. Speed: no problem
 
@@ -90,20 +93,3 @@ With 5 players we must choose a rule, for example:
 2. Build the **score row** and the **ranking**, and choose duet rule **B** first (simple and fair).
 3. **Test with 3 players first.** That already shows most problems (space, colours, crossing) and fits in most rooms.
    Go to 5 when 3 works well.
-
-## 7. What we built
-
-We chose duet rule **A** and the score row at the top. The game now works for 1 to 5 players:
-
-- `config.py`: `MAX_PLAYERS = 5`, `MIN_PLAYERS = 1`, `DROP_TIME = 3.0`. 5 player colours: blue, red, green, yellow, purple.
-- **Registration** waits for everyone who registered. Someone who is gone for 3 s (for example a person who walked past)
-  is not waited for.
-- **Score**: exactly 2 players keep the score bar. 1 or 3-5 players get a row of score boxes at the top, in the order they
-  stand, with the rating under each box.
-- **Duets**: pairs of neighbours, from left to right (1st+2nd, 3rd+4th). Each pair gets the duet bonus on its own.
-  A 5th player does the left part alone and gets no bonus. The pairs follow where the players stand (only updated
-  while every player is seen).
-- **Results**: a ranking; the crown goes to the player with the highest score (no crown when it is shared).
-- Tests: `tests/test_five_players.py` (registration, duet pairs with the real grader, ranking, score boxes).
-
-Not tested yet with real people. Advice 3 still holds: try 3 players first.

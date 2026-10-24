@@ -1,7 +1,7 @@
 import math
 import cv2
 import numpy as np
-from scene.functions import GREY, RATING_COLORS, WHITE, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
+from scene.functions import RATING_COLORS, draw_text, put_text_center, put_text_left, put_text_right, scale_for_height
 from scene.pose_figure import BONES
 
 POP_TIME = 0.18    # seconds: a new rating starts big and shrinks to its normal size ("pop")
@@ -9,9 +9,6 @@ POP_SIZE = 1.6     # how big a rating starts (1.6 = 60% bigger)
 FADE_TIME = 0.3    # seconds at the end: the rating fades out
 SIDE_SWAP_MARGIN = 40   # pixels: the score sides only swap when the players clearly stand the other way round
 RATING_GAP = 70    # pixels between the score bar and a rating (room for the score number)
-BADGE_MAX_WIDTH = 200   # pixels: one score badge (1 or 3-5 players)
-BADGE_HEIGHT = 50
-BADGE_GAP = 12          # pixels between two badges
 
 
 def pop(age, total_time):
@@ -36,88 +33,41 @@ class Scene:
         self.pose_top = self.score_bottom + 20
         self.pose_bottom = self.pose_top + 20
         self.sides = None   # player ids from left to right on the screen (score bar and ratings)
-        self.last_x = {}    # player id -> last known middle x (for players who are out of view)
-        self.badges = None  # player id -> (middle x, bottom y, width) of the score badges; None: the score bar
 
     def update_sides(self, players):
-        """The order of the players on the screen, for the score bar or badges and the ratings: player
-        ids from left to right. Uses the middle of each player's box. A player that is not visible keeps
-        their last place, and two neighbours only swap when they clearly stand the other way round
-        (SIDE_SWAP_MARGIN), so the order does not flip back and forth. At the start: by player number."""
+        """Which player stands left and which right, for the score bar and the ratings: player ids
+        from left to right. Uses the middle of each player's box. A player that is not visible keeps
+        their side, and the sides only swap when the players clearly stand the other way round
+        (SIDE_SWAP_MARGIN), so the bar does not flip back and forth. At the start: Player 1 left."""
         ids = [player["id"] for player in players]
         if self.sides is None or sorted(self.sides) != sorted(ids):
             self.sides = ids
-            self.last_x = {}
-        for player in players:
-            if player["visible"] and player["box"] is not None:
-                self.last_x[player["id"]] = player["box"][0] + player["box"][2] / 2
-
-        # sort the players with a known x among their own places (bubble sort with the margin)
-        places = [index for index, player_id in enumerate(self.sides) if player_id in self.last_x]
-        order = [self.sides[index] for index in places]
-        swapped = True
-        while swapped:
-            swapped = False
-            for k in range(len(order) - 1):
-                if self.last_x[order[k]] - self.last_x[order[k + 1]] > SIDE_SWAP_MARGIN:
-                    order[k], order[k + 1] = order[k + 1], order[k]
-                    swapped = True
-        for index, player_id in zip(places, order):
-            self.sides[index] = player_id
-        return list(self.sides)
+        xs = {player["id"]: player["box"][0] + player["box"][2] / 2
+              for player in players if player["visible"] and player["box"] is not None}
+        if len(xs) == 2:
+            left, right = self.sides
+            if xs[left] - xs[right] > SIDE_SWAP_MARGIN:
+                self.sides = [right, left]
+        return self.sides
 
     def render(self, frame, players, current_pose=None):
-        """Title and scores. With exactly 2 players a score bar (tug-of-war), else a row of badges.
-        players: list of all player dicts; only the registered players are in the game (when nobody
-        registered, for example after the debug key: Player 1 and 2)."""
         output = frame.copy()
-        in_game = [player for player in players if player.get("registered")] or players[:2]
-        by_id = {player["id"]: player for player in in_game}
-        left_to_right = [by_id[player_id] for player_id in self.update_sides(in_game)]
+        colors = []
+        scores = []
+
+        # the score bar follows where the players stand: the player on the left has the left part
+        by_id = {player["id"]: player for player in players}
+        for player_id in self.update_sides(players):
+            colors.append(by_id[player_id][self.color_key])
+            scores.append(by_id[player_id]["score"])
 
         output = self.draw_title(output, players, text_height=self.title_height)
-        if len(left_to_right) == 2:
-            # the score bar follows where the players stand: the player on the left has the left part
-            self.badges = None
-            colors = [player[self.color_key] for player in left_to_right]
-            scores = [player["score"] for player in left_to_right]
-            output = self._add_score(output, scores, self.score_top, self.score_bottom, colors)
-        else:
-            output = self._add_badges(output, left_to_right)
+        output = self._add_score(output, scores, self.score_top, self.score_bottom, colors)
 
         if current_pose is not None:
             output = self._add_current_pose(output, self.pose_top, self.pose_bottom, current_pose)
 
         return output
-
-    def _add_badges(self, frame, players):
-        """A row of score badges at the top, in the order the players stand: the player colour, the
-        player number, the score and a bar that shows the score compared to the best score."""
-        width = frame.shape[1]
-        count = max(1, len(players))
-        badge_w = int(min(BADGE_MAX_WIDTH, (width - 40) / count - BADGE_GAP))
-        x = (width - (count * badge_w + (count - 1) * BADGE_GAP)) // 2
-        top, bottom = self.score_top - 10, self.score_top - 10 + BADGE_HEIGHT
-        best = max([player["score"] for player in players] + [0])
-        self.badges = {}
-        for player in players:
-            color = tuple(int(c) for c in player[self.color_key][::-1])     # RGB -> BGR
-            region = frame[top:bottom, x:x + badge_w]
-            region[:] = (region * 0.35).astype(frame.dtype)                 # dark background
-            cv2.rectangle(frame, (x, top), (x + badge_w - 1, bottom), color, 2)
-            text_size = 0.55 if badge_w >= 140 else 0.45
-            label = f"Player {player['id']}" if badge_w >= 140 else f"P{player['id']}"
-            put_text_left(frame, label, (x + 8, top + 22), cv2.FONT_HERSHEY_SIMPLEX, text_size, color, 2)
-            put_text_right(frame, str(player["score"]), (x + badge_w - 8, top + 22),
-                           cv2.FONT_HERSHEY_SIMPLEX, text_size, WHITE, 2)
-            bar_left, bar_right, bar_top = x + 8, x + badge_w - 8, bottom - 16
-            cv2.rectangle(frame, (bar_left, bar_top), (bar_right, bar_top + 8), GREY, -1)
-            filled = int((bar_right - bar_left) * player["score"] / best) if best > 0 else 0
-            if filled > 0:
-                cv2.rectangle(frame, (bar_left, bar_top), (bar_left + filled, bar_top + 8), color, -1)
-            self.badges[player["id"]] = (x + badge_w // 2, bottom, badge_w)
-            x += badge_w + BADGE_GAP
-        return frame
 
     def draw_title(self, frame, players, prompt=None, text_height=60):
         """"Just Dance" at the top in the middle.
@@ -178,10 +128,9 @@ class Scene:
         return frame
 
     def draw_ratings(self, frame, ratings, ages=None, total_time=1.0):
-        """"Perfect", "Good", ... at that player's score (render() must be called first in the same frame):
-        - score bar (2 players): right next to the bar, the left player's rating left of the bar, the
-          right player's rating right of it (see update_sides())
-        - badges (1 or 3-5 players): under the player's badge
+        """"Perfect", "Good", ... right next to the score bar, on the side of that player's score:
+        the left player's rating left of the bar, the right player's rating right of it (see
+        update_sides(); render() must be called first in the same frame).
         ratings: {player_id: "Perfect"}
         ages:    {player_id: seconds since the rating came}: a new rating pops (see pop())."""
         width = frame.shape[1]
@@ -191,15 +140,6 @@ class Scene:
         left_id = (self.sides or sorted(ratings))[0]
         for player_id, rating in ratings.items():
             size, alpha = pop(ages[player_id], total_time) if ages and player_id in ages else (1.0, 1.0)
-            if self.badges is not None:
-                if player_id not in self.badges:
-                    continue
-                badge_x, badge_bottom, badge_w = self.badges[player_id]
-                size *= min(1.0, (badge_w + BADGE_GAP) / 170)       # small badges: smaller text
-                text_w = cv2.getTextSize(rating, cv2.FONT_HERSHEY_SIMPLEX, size, 5)[0][0]
-                x = min(max(badge_x, text_w // 2 + 5), width - text_w // 2 - 5)
-                self._draw_fading_text(frame, rating, (x, badge_bottom + 30), size, RATING_COLORS[rating], alpha)
-                continue
             text_w = cv2.getTextSize(rating, cv2.FONT_HERSHEY_SIMPLEX, size, 5)[0][0]
             if player_id == left_id:
                 x = max(bar_left - RATING_GAP - text_w // 2, text_w // 2 + 5)
