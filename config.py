@@ -22,6 +22,11 @@ DEFAULT_MOVE_BEATS = 2
 FACE_DETECT_WIDTH = 640   # face tracking looks at a copy of the image this wide (faster, same faces)
 CAMERA_SIZE = (1920, 1080)   # the webcam is read at this size (when it can); the full image is kept for small details (faces)
 GAME_SIZE = (1280, 720)      # the game works on a copy at most this big: YOLO, tracking, drawing and the screen
+BACKGROUND = True            # replace the room with the Just Dance stage (person segmentation, see background/)
+SEGMENT_MODEL_PATH = ROOT / "yolo26n-seg.pt"   # Ultralytics downloads it when it is missing
+SEGMENT_SIZE = 480           # the segmentation looks at a copy this big: 480 = clean edges, about 9 ms
+BOX_OVERLAP = 0.5            # a person belongs to a player when their boxes overlap this much (bystanders vanish)
+MASK_SOFTNESS = 1.5          # pixels: how soft the edge around the players is
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 3 #higher easier 

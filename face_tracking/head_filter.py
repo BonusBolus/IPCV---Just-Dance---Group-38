@@ -2,17 +2,20 @@ import cv2
 import numpy as np
 
 
-def enlarge_heads(output, faces, enlargement=1.0, detail=None):
+def enlarge_heads(output, faces, enlargement=1.0, detail=None, mask=None):
     """Magnify each detected head in place with a feathered warp.
 
     ``faces`` contains the dictionaries returned by ``smooth_face_properties`` (in ``output`` pixels).
     ``detail``: the same camera image, unchanged, and maybe bigger (the 1080p camera image while the
     game works at 720p). The enlarged head is taken from it, so a big head is sharp instead of blown up.
-    Without it, a copy of ``output`` is used."""
+    Without it, a copy of ``output`` is used.
+    ``mask``: the players' segmentation mask (float32, ``output`` size), made bigger in the same way, so
+    the background does not cut the big head back to its old size. Changed in place too."""
     if enlargement <= 1.0:
         return output
 
     source = output.copy() if detail is None else detail
+    mask_source = None if mask is None else mask.copy()
     scale = source.shape[1] / output.shape[1]          # source pixels per output pixel (1.5 for 1080p -> 720p)
     image_height, image_width = output.shape[:2]
 
@@ -56,5 +59,9 @@ def enlarge_heads(output, faces, enlargement=1.0, detail=None):
         alpha = np.clip((1.0 - distance) / 0.2, 0.0, 1.0)[..., np.newaxis]
         original_region = output[y1:y2, x1:x2]
         output[y1:y2, x1:x2] = (alpha * enlarged + (1.0 - alpha) * original_region).astype(np.uint8)
+        if mask is not None:
+            enlarged_mask = cv2.remap(mask_source, map_x / scale, map_y / scale, cv2.INTER_LINEAR,
+                                      borderMode=cv2.BORDER_REFLECT_101)
+            mask[y1:y2, x1:x2] = alpha[..., 0] * enlarged_mask + (1.0 - alpha[..., 0]) * mask[y1:y2, x1:x2]
 
     return output
