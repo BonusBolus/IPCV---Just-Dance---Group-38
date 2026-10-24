@@ -71,6 +71,11 @@ give the same result.
 fades out (feathering), so you do not see a hard border. The amount is `HEAD_ENLARGEMENT` in `config.py` (`1.35`);
 `1.0` turns the effect off.
 
+**Sharp big heads:** the webcam is read at 1920x1080 (`CAMERA_SIZE`), and the game works on a 1280x720 copy
+(`GAME_SIZE`, see `camera.py`). `enlarge_heads(..., detail=frame.detail)` takes the enlarged head from the
+1080p image, which has 1.5x more pixels. So a big head is sharp, and not a blown-up 720p face. The place and size
+are the same as before. A webcam that cannot do 1080p just gives its own size, and then the effect works as before.
+
 ## 3. The crown: `add_crown()`
 
 **Who gets the crown:** only the player whose score is **at least 10 % higher** than the other player's score

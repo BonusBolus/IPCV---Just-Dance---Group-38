@@ -110,7 +110,8 @@ class Game:
         # Only faces that belong to a player get effects: no crowns on bystanders or false detections
         self.heads = faces_for_players(self.players, faces)
         player_faces = [face for face in self.heads.values() if face is not None]
-        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT)
+        # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
+        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image))
         leader = crown_holder(self.players)
         if leader is not None and self.heads[leader] is not None:
             add_crown(image, [self.heads[leader]])
