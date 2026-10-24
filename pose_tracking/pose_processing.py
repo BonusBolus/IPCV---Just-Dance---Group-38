@@ -3,6 +3,24 @@ import numpy as np
 import config
 
 
+def use_one_openvino_core():
+    """Make Ultralytics use one OpenVINO Core for all models (pose and segmentation).
+
+    Ultralytics makes a new Core for every model and asks it for the available devices. On some laptops
+    (seen on an AMD Ryzen AI laptop, OpenVINO 2026.4) the second Core crashes the whole program while it
+    looks for Intel GPU/NPU devices: "segfault in libze_loader.so". With one Core the devices are searched
+    only once. Call this before a model is loaded; calling it again does nothing."""
+    import openvino
+    if getattr(openvino.Core, "shared", False):
+        return
+    core = openvino.Core()
+
+    def shared_core(*args, **kwargs):
+        return core
+    shared_core.shared = True
+    openvino.Core = shared_core
+
+
 def load_pose_model():
     """The YOLO pose model. With USE_OPENVINO it runs about 2x faster on the CPU.
 
@@ -11,6 +29,7 @@ def load_pose_model():
     `dynamic=True` makes it work for every camera size, like PyTorch."""
     if not config.USE_OPENVINO:
         return YOLO(str(config.YOLO_MODEL_PATH))
+    use_one_openvino_core()
     folder = config.YOLO_MODEL_PATH.with_name(config.YOLO_MODEL_PATH.stem + "_openvino_model")
     if not folder.exists():
         print("Converting the YOLO model to OpenVINO (only the first time)...")

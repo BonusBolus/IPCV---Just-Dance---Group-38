@@ -11,11 +11,13 @@ import numpy as np
 from ultralytics import YOLO
 
 import config
+from pose_tracking.pose_processing import use_one_openvino_core
 
 
 def load_segment_model():
     if not config.USE_OPENVINO:
         return YOLO(str(config.SEGMENT_MODEL_PATH))
+    use_one_openvino_core()                 # a second OpenVINO Core can crash the program, see there
     folder = config.SEGMENT_MODEL_PATH.with_name(config.SEGMENT_MODEL_PATH.stem + "_openvino_model")
     if not folder.exists():
         print("Converting the segmentation model to OpenVINO (only the first time)...")
