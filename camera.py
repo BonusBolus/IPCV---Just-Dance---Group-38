@@ -6,12 +6,31 @@ from dataclasses import dataclass
 import cv2
 import numpy as np
 
+import config
+
 
 @dataclass
 class Frame:
-    image: np.ndarray  # BGR image as read by OpenCV
+    image: np.ndarray  # BGR image the game works with (at most GAME_SIZE)
     time: float        # capture time in seconds
     index: int         # frame number
+    full: np.ndarray | None = None   # the camera image at full size (CAMERA_SIZE), for small details such as
+                                     # faces; None when it is the same as `image`
+
+    @property
+    def detail(self):
+        """The sharpest image there is: `full`, or `image` when the camera is not bigger than the game."""
+        return self.image if self.full is None else self.full
+
+
+def game_copy(image, size=None):
+    """A copy of the camera image at most `size` (GAME_SIZE): the image itself when it is small enough."""
+    max_width, max_height = size or config.GAME_SIZE
+    height, width = image.shape[:2]
+    scale = min(max_width / width, max_height / height)
+    if scale >= 1.0:
+        return image
+    return cv2.resize(image, (round(width * scale), round(height * scale)), interpolation=cv2.INTER_AREA)
 
 
 class Camera:
@@ -23,9 +42,14 @@ class Camera:
     images wait in the webcam's buffer when the game is slower than the camera, and the game
     shows an image of about 160 ms ago (the players see themselves late). A video file is read
     normally, so no frame is skipped.
+
+    The webcam is asked for CAMERA_SIZE (1920x1080). The game works on a copy of at most GAME_SIZE
+    (1280x720), so it is not slower; the full image stays in Frame.full for the faces. Mirroring and
+    the copy are made in the background thread too.
     """
 
-    def __init__(self, source=0, width=1280, height=720, mirror=True):
+    def __init__(self, source=0, width=None, height=None, mirror=True):
+        width, height = width or config.CAMERA_SIZE[0], height or config.CAMERA_SIZE[1]
         if isinstance(source, int) and sys.platform == "win32":
             self.cap = cv2.VideoCapture(source, cv2.CAP_DSHOW)  # opens a lot faster on Windows
         else:
@@ -51,8 +75,10 @@ class Camera:
         """Background thread: read the webcam all the time, keep only the newest image."""
         while self.running:
             ok, image = self.cap.read()
+            capture_time = time.perf_counter()
+            images = self._prepare(image) if ok else None
             with self.new_image:
-                self.latest = (ok, image, time.perf_counter())
+                self.latest = (ok, images, capture_time)
                 self.new_image.notify()
             if not ok:
                 break
@@ -64,18 +90,25 @@ class Camera:
                     if not self.thread.is_alive():
                         return None             # the webcam stopped
                     self.new_image.wait(timeout=0.5)
-                ok, image, capture_time = self.latest
+                ok, images, capture_time = self.latest
                 self.latest = None
         else:
             ok, image = self.cap.read()
             capture_time = time.perf_counter()
+            images = self._prepare(image) if ok else None
         if not ok:
             return None
-        if self.mirror:
-            image = cv2.flip(image, 1)
-        frame = Frame(image, capture_time, self.index)
+        image, full = images
+        frame = Frame(image, capture_time, self.index, full)
         self.index += 1
         return frame
+
+    def _prepare(self, image):
+        """(game image, full image or None): mirrored, and the game copy at most GAME_SIZE."""
+        if self.mirror:
+            image = cv2.flip(image, 1)
+        small = game_copy(image)
+        return small, (None if small is image else image)
 
     def release(self):
         if self.live:
