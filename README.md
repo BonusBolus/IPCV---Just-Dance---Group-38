@@ -10,8 +10,10 @@ against the move on screen, and adds fun head effects (big heads, the player nam
 pip install -r requirements.txt
 ```
 
-Needs OpenCV 4.5.4 or newer (for the YuNet face detector). The model files are in the repository:
-`yolo26n-pose.pt` (pose) and `face_tracking/face_detection_yunet_2023mar.onnx` (faces).
+Needs OpenCV 4.5.4 or newer (for the YuNet face detector). The face model is in the repository
+(`face_tracking/face_detection_yunet_2023mar.onnx`). The YOLO models `yolo26n-pose.pt` (pose) and `yolo26n-seg.pt`
+(the players for the stage, about 7 MB) are not: Ultralytics downloads them the first time you start the game, and
+the game converts them to OpenVINO once (a few seconds).
 
 ## Run
 
@@ -39,6 +41,8 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
    points once: Perfect, Good, OK or Miss, shown next to your score (your score is on your side of the bar).
    Gold moves count double. The player who is ahead wears a gold crown. If you walk out of the image, the game
    warns you and the song keeps going.
+   **Bonus star:** now and then a gold star floats across the screen at hand height. The first player who touches
+   it with a hand gets **+100** points.
 5. **Results:** the scores and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
 
 ## Make an executable
@@ -74,7 +78,8 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | `pose_tracking/` | YOLO pose estimation: the keypoints of every person |
 | `identity_tracking/` | Which person is Player 1 and which is Player 2 (shirt colour + position) |
 | `face_tracking/` | Finds the faces; big heads, the crown and the player label |
-| `scene/` | Draws the screens: title, scores, move cards, song selection, registration and results |
+| `scene/` | Draws the screens: title, scores, move cards, song selection, registration, results and the bonus star |
+| `background/` | The Just Dance stage instead of the room: finds the players (person segmentation) and draws the stage |
 | `choreography/` | `poses.json` (all poses), one `.json` per song (the moves on the beats) and the music (`.ogg`). Every song `.json` here shows up in the song selection |
 
 ## Documentation
@@ -85,3 +90,4 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | [docs/scene_changes.md](docs/scene_changes.md) | The `scene/` folder: which file draws which part of the screen |
 | [docs/face_tracking.md](docs/face_tracking.md) | Face detection, big heads, the crown and the player label |
 | [docs/identity_tracking.md](docs/identity_tracking.md) | How players are recognised by their shirt colour |
+| [docs/background_and_star.md](docs/background_and_star.md) | The stage behind the players and the bonus star |

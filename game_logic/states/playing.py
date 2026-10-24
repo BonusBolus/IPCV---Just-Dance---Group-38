@@ -4,9 +4,11 @@ import math
 import numpy as np
 
 import config
+from game_logic.bonus_star import BonusStar
 from game_logic.states.common import PLAYER_IDS, State, draw_move_cards
 from identity_tracking.identity import KEYPOINT_NAMES
 from scene.functions import GREEN, draw_banner, draw_big_text, draw_duet_bonus, draw_text, player_color
+from scene.star import draw_star, draw_star_burst
 
 RATINGS = [(85, "Perfect"), (65, "Good"), (40, "OK")]   # below 40: "Miss"
 
@@ -47,6 +49,8 @@ class PlayingState(State):
         self.ratings = {}                                # player id -> ("Perfect", time)
         self.last_seen = {i: game.now for i in PLAYER_IDS}
         self.roles = {i: role for role, i in enumerate(PLAYER_IDS)}   # duet part per player, see _update_roles
+        self.star = BonusStar()                          # the bonus star, see bonus_star.py
+        self.image_size = config.GAME_SIZE               # (width, height), updated in draw()
 
     def update(self, game):
         t = game.song.time()
@@ -54,6 +58,11 @@ class PlayingState(State):
         for i in PLAYER_IDS:
             if game.players[i]["visible"]:
                 self.last_seen[i] = game.now
+
+        # the bonus star: the first player who touches it gets STAR_BONUS points
+        grabbed_by = self.star.update(t, game.players.values(), self.image_size, game.song.length)
+        if grabbed_by is not None:
+            game.players[grabbed_by]["score"] += config.STAR_BONUS
 
         move = game.song.grading_move(t)
         if move is not self.move:
@@ -127,6 +136,18 @@ class PlayingState(State):
         self.frame_scores = {i: [] for i in PLAYER_IDS}
         self.interacted = False
 
+    def draw_star(self, game, image, t):
+        """The floating star (fading in and out), and the burst with "+100" after a grab."""
+        age = self.star.age(t)
+        if age is not None and self.star.position is not None:
+            alpha = min(1.0, age / 0.3, (config.STAR_TIME - age) / 0.5)
+            draw_star(image, self.star.position, int(config.STAR_SIZE * image.shape[0]), t, alpha)
+        if self.star.grab is not None:
+            player_id, position, since = self.star.grab
+            progress = (t - since) / config.STAR_BURST_TIME
+            draw_star_burst(image, position, f"+{config.STAR_BONUS}", player_color(game.players[player_id]), progress)
+        return image
+
     def is_lost(self, game, player_id):
         player = game.players[player_id]
         return player["registered"] and game.now - self.last_seen[player_id] > config.LOST_TIME
@@ -140,6 +161,9 @@ class PlayingState(State):
                    if game.now - since < config.RATING_TIME}
         ages = {i: game.now - since for i, (text, since) in self.ratings.items()}
         image = game.scene.draw_ratings(image, ratings, ages, config.RATING_TIME)   # next to the score bar, pops
+
+        self.image_size = (image.shape[1], image.shape[0])
+        image = self.draw_star(game, image, t)
 
         lost = [game.players[i] for i in PLAYER_IDS if self.is_lost(game, i)]
         for row, player in enumerate(lost):

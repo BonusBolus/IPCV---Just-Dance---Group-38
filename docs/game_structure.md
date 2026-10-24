@@ -100,6 +100,7 @@ game_logic/
         playing.py            #   PlayingState (+ the rating)
         results.py            #   ResultsState
     song.py                   # NEW: reads the song file, audio, song clock, current + next move
+    bonus_star.py             # NEW: the bonus star: when it comes, where it floats, who grabs it
     pose_grading.py           # same grading (for now), only the Pencil pose added
 scene/                        # one file per part of the screen (docs/scene_changes.md)
     scene.py                  #   the original Scene class (title, score bar) + draw_ratings()
@@ -108,6 +109,10 @@ scene/                        # one file per part of the screen (docs/scene_chan
     move_cards.py             #   NEW: the NOW / NEXT cards
     registration_screen.py    #   NEW: the Registration screen
     results_screen.py         #   NEW: the Results screen
+    star.py                   #   NEW: draws the bonus star and the "+100" burst
+background/                   # NEW: the Just Dance stage instead of the room (docs/background_and_star.md)
+    segmentation.py           #   which pixels belong to the players (yolo26n-seg)
+    stage.py                  #   the stage: gradient, light beams, floor glow, floating lights
 face_tracking/                # head effects (docs/face_tracking.md)
     face_tracking.py          #   find faces (YuNet) and smooth them over time
     head_filter.py            #   big heads

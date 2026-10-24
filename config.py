@@ -34,3 +34,11 @@ SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame score
 DUET_MIN_SCORE = 50 #BOTH PLAYERS 50 points out of 100 for bonus to count
 DUET_BONUS = 0.25 #%
 DUET_BONUS_TIME = 1.5   # seconds the duet bonus popup stays on screen
+STAR_BONUS = 100        # points for grabbing the bonus star (a Perfect move is 100)
+STAR_INTERVAL = 20.0    # seconds between two stars (on average) ...
+STAR_JITTER = 5.0       # ... plus or minus up to this much, so it is a surprise
+STAR_TIME = 5.0         # seconds a star floats across the screen
+STAR_END_FREE = 3.0     # no star in the last seconds of the song
+STAR_SIZE = 0.05        # star radius, as part of the image height (36 px at 720p)
+STAR_REACH = 0.08       # a wrist this close to the star (part of the image height, 58 px at 720p) grabs it
+STAR_BURST_TIME = 0.9   # seconds the "+100" stays after a grab
