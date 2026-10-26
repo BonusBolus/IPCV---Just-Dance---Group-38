@@ -1,0 +1,27 @@
+% Figure 3: how T5 builds the image, in this order.
+% Preamble: \usepackage{tikz} \usetikzlibrary{arrows.meta,positioning}
+\begin{figure}[h]
+  \centering
+  \resizebox{\linewidth}{!}{%
+  \begin{tikzpicture}[
+      font=\footnotesize,
+      >={Stealth[length=1.8mm]},
+      step/.style={draw, rounded corners=2pt, align=center, text width=2.2cm, minimum height=14mm, inner sep=3pt}]
+
+    \node[step] (frame) {\textbf{Camera frame}\\ \scriptsize $1280{\times}720$};
+    \node[step, right=6mm of frame] (heads) {\textbf{1. Big heads}\\ \scriptsize taken from the $1920{\times}1080$ frame};
+    \node[step, right=6mm of heads] (stage) {\textbf{2. Stage}\\ \scriptsize replaces the room, using the player mask};
+    \node[step, right=6mm of stage] (crown) {\textbf{3. Crown and labels}\\ \scriptsize on the players' heads};
+    \node[step, right=6mm of crown] (glow) {\textbf{4. Edge glow}\\ \scriptsize in the player colours};
+    \node[step, right=6mm of glow] (ui) {\textbf{5. Game screen}\\ \scriptsize move cards, timeline, scores, star};
+
+    \draw[->] (frame) -- (heads);
+    \draw[->] (heads) -- (stage);
+    \draw[->] (stage) -- (crown);
+    \draw[->] (crown) -- (glow);
+    \draw[->] (glow) -- (ui);
+  \end{tikzpicture}}
+  \caption{Scene rendering (T5): the order in which the image is built up. The big heads come first, so
+  the stage can use the enlarged player mask; the game screen of the current state is drawn last, on top.}
+  \label{fig:rendering}
+\end{figure}
