@@ -236,3 +236,6 @@ build-env/
 
 # results of python main.py --measure
 measurements/
+
+# videos of python main.py --record
+recordings/

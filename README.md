@@ -95,3 +95,4 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | [docs/background_and_star.md](docs/background_and_star.md) | The stage behind the players and the bonus star |
 | [docs/animated_moves.md](docs/animated_moves.md) | Animated moves: a movement to follow, the chain bonus and the motion check |
 | [docs/measurements.md](docs/measurements.md) | Measuring the frame rate and the time of every stage (`--measure`) |
+| [docs/demo_video.md](docs/demo_video.md) | Recording the demo video (`--record`) and what the 55 s of Rasputin show |

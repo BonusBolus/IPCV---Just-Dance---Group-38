@@ -111,7 +111,7 @@ class StarInTheGameTests(unittest.TestCase):
     def test_the_bonus_goes_to_the_score(self):
         song = Mock()
         song.time.return_value = 0.0
-        song.length = SONG_LENGTH
+        song.length = song.play_length = SONG_LENGTH
         song.is_finished.return_value = False
         song.grading_move.return_value = None
         players = {1: player(1, 350), 2: player(2, 930)}

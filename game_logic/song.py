@@ -200,12 +200,22 @@ class Song:
         return self.moves[-1].end
 
     @property
+    def play_length(self):
+        """Seconds the song is played: its length, but at most SONG_MAX_TIME."""
+        return self.length if config.SONG_MAX_TIME is None else min(self.length, config.SONG_MAX_TIME)
+
+    @property
+    def played_moves(self):
+        """The moves that come before the song stops (play_length)."""
+        return [move for move in self.moves if move.start < self.play_length]
+
+    @property
     def duet_moves(self):
-        return sum(move.players == 2 for move in self.moves)
+        return sum(move.players == 2 for move in self.played_moves)
 
     @property
     def gold_moves(self):
-        return sum(move.gold for move in self.moves)
+        return sum(move.gold for move in self.played_moves)
 
     def start(self):
         self.started_at = time.perf_counter()
@@ -224,6 +234,11 @@ class Song:
 
     def music_playing(self):
         return self.has_audio and pygame.mixer.music.get_busy()
+
+    def fade_out(self, seconds):
+        """Let the music fade out (it keeps playing quietly until then; the song clock keeps running)."""
+        if self.has_audio:
+            pygame.mixer.music.fadeout(int(seconds * 1000))
 
     def stop(self):
         if self.has_audio:
@@ -246,6 +261,8 @@ class Song:
     def is_finished(self, t):
         if self.started_at is None:
             return False
+        if config.SONG_MAX_TIME is not None and t >= config.SONG_MAX_TIME:
+            return True                                # stopped early (SONG_MAX_TIME, for the demo video)
         if self.has_audio:
             return not pygame.mixer.music.get_busy()
         return t > self.moves[-1].end + 2.0

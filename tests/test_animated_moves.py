@@ -154,7 +154,7 @@ class ChainTests(unittest.TestCase):
     def play(self, scores=None):
         steps = animated_move({"beat": 0, "poses": KAZACHOK, "name": "Kazachok"}, 0, 1.0, 0.5, POSES, "test")
         song = Mock()
-        song.length = 100.0
+        song.length = song.play_length = 100.0
         song.is_finished.return_value = False
         song.grading_move.side_effect = lambda t: next((s for s in steps if s.start <= t < s.end), None)
         grader = Mock(processed_poses={key: None for key in KAZACHOK})

@@ -66,13 +66,14 @@ NEXT_STATE = {"song_select": "registration", "registration": "countdown", "count
 
 
 class Game:
-    def __init__(self, camera, debug=False, fullscreen=True, measure=None, duration=None):
+    def __init__(self, camera, debug=False, fullscreen=True, measure=None, duration=None, recorder=None):
         self.camera = camera
         self.debug = debug
         self.show_debug = debug                        # debug drawings this frame: --debug, or see debug_shown()
         self.fullscreen = fullscreen
         self.measure = measure or NoMeasurements()    # --measure: times of every stage (measurements.py)
         self.duration = duration                       # --duration: stop after this many seconds
+        self.recorder = recorder                       # --record: webcam and game as videos (recorder.py)
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
@@ -114,6 +115,8 @@ class Game:
         self.state_name = name
         self.state = self.states[name]
         self.state.enter(self)
+        if name == "playing" and self.recorder is not None and self.song.has_audio:
+            self.recorder.song_started(self.song.audio_path)    # the music of the video starts here
 
     def step(self, frame):
         """Everything that happens with one camera frame. Returns the image to show."""
@@ -225,7 +228,7 @@ class Game:
         while pending is not None:
             frame_start = time.perf_counter()
             image = pending.result()                   # the frame that was calculated meanwhile
-            shown_index = frame.index
+            shown_index, shown_frame = frame.index, frame
             frame = self.camera.read()
             pending = self.step_thread.submit(self.step, frame) if frame is not None else None
             self.fps.update()
@@ -236,6 +239,8 @@ class Game:
             shown_size = f"{image.shape[1]}x{image.shape[0]}"
             cv2.imshow(WINDOW_NAME, image)
             self.measure.frame_shown(shown_index, (time.perf_counter() - display_start) * 1000)
+            if self.recorder is not None:
+                self.recorder.add(shown_frame.image, image)    # the webcam and the game, the same moment
             if self.duration is not None and time.perf_counter() - run_start >= self.duration:
                 break                                  # --duration: the measurement is long enough
 
@@ -259,3 +264,5 @@ class Game:
             self.segment_thread.shutdown()
         self.camera.release()
         cv2.destroyAllWindows()
+        if self.recorder is not None:
+            self.recorder.finish()                     # makes the MP4 files (some seconds)

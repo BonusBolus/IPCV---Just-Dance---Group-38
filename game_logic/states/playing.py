@@ -60,6 +60,7 @@ class PlayingState(State):
         self.chain = {i: 0 for i in PLAYER_IDS}          # correct steps in a row in the current animated move
         self.flows = {i: None for i in PLAYER_IDS}       # direction match of the last step (debug)
         self.chains_shown = {}                           # player id -> (chain length, time), for "Chain x3"
+        self.fading = False                              # the music is fading out (SONG_MAX_TIME)
 
     def update(self, game):
         t = game.song.time()
@@ -73,7 +74,7 @@ class PlayingState(State):
             self.motion.update(i, player["keypoints_raw"][MIRROR_SWAP] if seen else None, t)
 
         # the bonus star: the first player who touches it gets STAR_BONUS points
-        grabbed_by = self.star.update(t, game.players.values(), self.image_size, game.song.length)
+        grabbed_by = self.star.update(t, game.players.values(), self.image_size, game.song.play_length)
         if grabbed_by is not None:
             game.players[grabbed_by]["score"] += config.STAR_BONUS
 
@@ -111,6 +112,11 @@ class PlayingState(State):
                 if game.pose_grader.interaction_met(ordered, move.key):
                     self.interacted = True
 
+        # the song stops at SONG_MAX_TIME: fade the music out just before
+        if (config.SONG_MAX_TIME is not None and not self.fading
+                and config.SONG_MAX_TIME - config.SONG_FADE_TIME <= t < config.SONG_MAX_TIME):
+            game.song.fade_out(config.SONG_FADE_TIME)
+            self.fading = True
         if game.song.is_finished(t):
             self.finish_move(game)
             return "results"
