@@ -26,6 +26,7 @@ run at the same time as t2_pose, so the stages do not add up to the frame time.
 """
 import csv
 import platform
+import sys
 import time
 from contextlib import contextmanager, nullcontext
 from datetime import datetime
@@ -73,7 +74,9 @@ class Measurements:
 
     def __init__(self, folder=None, program_start=None):
         stamp = datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        self.folder = Path(folder or Path(__file__).resolve().parent.parent / "measurements" / stamp)
+        # next to the program (dist/JustDance/measurements/) or in the project folder (python main.py)
+        base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
+        self.folder = Path(folder or base / "measurements" / stamp)
         self.program_start = program_start or time.perf_counter()
         self.game_ready = None          # Game.__init__ done (models loaded)
         self.first_frame = None         # the first image shown

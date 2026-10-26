@@ -11,7 +11,8 @@ python main.py --measure --duration 120     # stops by itself after 120 s
 python main.py --measure --video test.mp4   # the same recording every time (repeatable)
 ```
 
-When the game closes, it prints a summary and writes a folder `measurements/<date_time>/`:
+When the game closes, it prints a summary and writes a folder `measurements/<date_time>/` (in the project folder,
+or next to the program when you use the executable: `dist/JustDance/measurements/`):
 
 | File | What is in it |
 |---|---|
