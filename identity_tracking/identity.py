@@ -31,7 +31,7 @@ LEFT_SHOULDER, RIGHT_SHOULDER = 5, 6
 LEFT_HIP, RIGHT_HIP = 11, 12
 
 # colour (R, G, B) of a player slot before anyone is registered in it
-DEFAULT_COLORS = {1: (0, 120, 255), 2: (255, 60, 60), 3: (60, 200, 80), 4: (255, 190, 0), 5: (190, 80, 255)}   # RGB: blue, red, green, yellow, purple
+DEFAULT_COLORS = {1: (0, 120, 255), 2: (255, 60, 60)}
 
 
 @dataclass

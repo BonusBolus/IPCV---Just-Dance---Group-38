@@ -1,20 +1,8 @@
-"""Results: a ranking of the players and the winner. Raise both hands (or wait) to go back to the song selection."""
+"""Results: scores and winner. Raise both hands (or wait) to go back to the song selection."""
 import config
-from game_logic.states.common import HoldGesture, State, anyone_hands_up, players_in_game
+from game_logic.states.common import HoldGesture, State, anyone_hands_up
 from scene.results_screen import draw_results
 from scene.functions import draw_duet_bonus
-
-
-def rank_players(game):
-    """[(place, player), ...] from the highest score down. Players with the same score share a place.
-    Only the players in the game (when nobody registered, for example after the debug key: Player 1 and 2)."""
-    ids = players_in_game(game) or list(game.players)[:2]
-    players = sorted((game.players[i] for i in ids), key=lambda player: (-player["score"], player["id"]))
-    ranking = []
-    for index, player in enumerate(players):
-        same_as_above = index > 0 and player["score"] == players[index - 1]["score"]
-        ranking.append((ranking[-1][0] if same_as_above else index + 1, player))
-    return ranking
 
 
 class ResultsState(State):
@@ -36,8 +24,12 @@ class ResultsState(State):
 
     def draw(self, game, image):
         show_hint = game.now - self.start >= config.RESULTS_MIN_TIME
-        ranking = rank_players(game)
-        image = draw_results(image, ranking, self.gesture.progress, show_hint)
+        player_1, player_2 = game.players[1], game.players[2]
+        if player_1["score"] == player_2["score"]:
+            winner = None                                # a draw
+        else:
+            winner = player_1 if player_1["score"] > player_2["score"] else player_2
+        image = draw_results(image, game.players, winner, self.gesture.progress, show_hint)
         if self.duet_bonus_since is not None:
             elapsed = game.now - self.duet_bonus_since
             if 0 <= elapsed < config.DUET_BONUS_TIME:

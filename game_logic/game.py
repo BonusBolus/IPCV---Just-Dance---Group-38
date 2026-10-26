@@ -10,6 +10,8 @@ from concurrent.futures import ThreadPoolExecutor
 from camera import FPSCounter
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
 from face_tracking.head_filter import enlarge_heads
+from background.segmentation import PersonSegmenter, player_mask
+from background.stage import Stage
 from face_tracking.game_effects import add_crown, add_player_label, faces_for_players
 from game_logic.pose_grading import PoseGrader
 from game_logic.song import find_songs
@@ -34,12 +36,14 @@ def find_faces(image):
 
 
 def crown_holder(players):
-    """Id of the player with the highest score, or None when the best score is shared or 0
-    (nobody gets the crown while all scores are 0, for example during Registration)."""
-    scores = sorted(((player["score"], player_id) for player_id, player in players.items()), reverse=True)
-    if not scores or scores[0][0] <= 0 or (len(scores) > 1 and scores[1][0] == scores[0][0]):
-        return None
-    return scores[0][1]
+    """Id of the player who leads by at least config.CROWN_LEAD (10%), or None.
+    Nobody gets the crown while both scores are 0 (for example during Registration)."""
+    (id_1, player_1), (id_2, player_2) = sorted(players.items())
+    if player_1["score"] > player_2["score"]:
+        return id_1
+    if player_2["score"] > player_1["score"]:
+        return id_2
+    return None
 
 
 # Only used by the debug key "n": jump to the next state
@@ -53,7 +57,7 @@ class Game:
         self.debug = debug
         self.fullscreen = fullscreen
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
-        self.tracker = IdentityTracker(max_players=config.MAX_PLAYERS)
+        self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
         self.songs = find_songs()                      # all songs, for the song selection
         first = [i for i, song in enumerate(self.songs) if song.path.resolve() == config.SONG_PATH.resolve()]
@@ -67,6 +71,10 @@ class Game:
         self.fps = FPSCounter()
         self.face_thread = ThreadPoolExecutor(max_workers=1)   # one worker: frames stay in order
         self.step_thread = ThreadPoolExecutor(max_workers=1)   # calculates the next frame, see run()
+        # the Just Dance stage instead of the room: person segmentation in its own thread, like the faces
+        self.segmenter = PersonSegmenter() if config.BACKGROUND else None
+        self.segment_thread = ThreadPoolExecutor(max_workers=1) if config.BACKGROUND else None
+        self.stage = Stage()
         self.skip_state = False                                # debug key n: next state, done in step()
         self.states = {
             "song_select": SongSelectState(),
@@ -98,6 +106,7 @@ class Game:
             self.change_state("song_select")
 
         faces_future = self.face_thread.submit(find_faces, frame.image)    # starts now, in the second thread
+        people_future = self.segment_thread.submit(self.segmenter.find_people, frame.image) if self.segmenter else None
         keypoints, _ = self.pose_estimator.process(frame.image)
         self.players = self.tracker.update(frame.image, people_from_pose(keypoints, min_confidence=0.1))
 
@@ -110,7 +119,13 @@ class Game:
         # Only faces that belong to a player get effects: no crowns on bystanders or false detections
         self.heads = faces_for_players(self.players, faces)
         player_faces = [face for face in self.heads.values() if face is not None]
-        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT)
+        # only the players stay, the room becomes the stage (mask: 1 = player, 0 = room)
+        mask = player_mask(people_future.result(), self.players.values(), image.shape) if people_future else None
+        # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
+        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image),
+                      mask=mask)
+        if mask is not None:
+            self.stage.place_players(image, mask, self.now)
         leader = crown_holder(self.players)
         if leader is not None and self.heads[leader] is not None:
             add_crown(image, [self.heads[leader]])
@@ -172,5 +187,7 @@ class Game:
         self.song.stop()
         self.step_thread.shutdown()
         self.face_thread.shutdown()
+        if self.segment_thread:
+            self.segment_thread.shutdown()
         self.camera.release()
         cv2.destroyAllWindows()

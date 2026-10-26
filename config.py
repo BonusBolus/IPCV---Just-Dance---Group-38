@@ -8,9 +8,6 @@ YOLO_MODEL_PATH = ROOT / "yolo26n-pose.pt"
 MAX_FPS = 25             # the game never runs faster than this: less work and heat for the laptop
 USE_OPENVINO = True      # run YOLO with OpenVINO: about 2x faster on the CPU, same model (see pose_processing.py)
 
-MAX_PLAYERS = 5          # up to this many players register; with exactly 2 the classic score bar is used
-MIN_PLAYERS = 1          # the game starts when everyone registered is ready, and at least this many players
-DROP_TIME = 3.0          # registration: a player who is gone this long (seconds) is not waited for
 HOLD_TIME = 1.0          # seconds to hold "hands up" (song selection, registration, results)
 BROWSE_HOLD_TIME = 0.5   # song selection: seconds to hold one hand up to go to the previous / next song
 PREVIEW_START = 0.3      # song selection: the music preview starts at this part of the song (0.3 = 30%)
@@ -23,6 +20,13 @@ SHOW_TIMELINE = True     # the coming moves slide to a hit line at the bottom (i
 RATING_TIME = 1.0        # how long "Perfect" etc. stays on screen
 DEFAULT_MOVE_BEATS = 2
 FACE_DETECT_WIDTH = 640   # face tracking looks at a copy of the image this wide (faster, same faces)
+CAMERA_SIZE = (1920, 1080)   # the webcam is read at this size (when it can); the full image is kept for small details (faces)
+GAME_SIZE = (1280, 720)      # the game works on a copy at most this big: YOLO, tracking, drawing and the screen
+BACKGROUND = True            # replace the room with the Just Dance stage (person segmentation, see background/)
+SEGMENT_MODEL_PATH = ROOT / "yolo26n-seg.pt"   # Ultralytics downloads it when it is missing
+SEGMENT_SIZE = 480           # the segmentation looks at a copy this big: 480 = clean edges, about 9 ms
+BOX_OVERLAP = 0.5            # a person belongs to a player when their boxes overlap this much (bystanders vanish)
+MASK_SOFTNESS = 1.5          # pixels: how soft the edge around the players is
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"
 SCORE_MULTIPLIER = 3 #higher easier 
@@ -30,3 +34,11 @@ SCORE_PERCENTILE = 70    # points of a move = this percentile of the frame score
 DUET_MIN_SCORE = 50 #BOTH PLAYERS 50 points out of 100 for bonus to count
 DUET_BONUS = 0.25 #%
 DUET_BONUS_TIME = 1.5   # seconds the duet bonus popup stays on screen
+STAR_BONUS = 100        # points for grabbing the bonus star (a Perfect move is 100)
+STAR_INTERVAL = 20.0    # seconds between two stars (on average) ...
+STAR_JITTER = 5.0       # ... plus or minus up to this much, so it is a surprise
+STAR_TIME = 5.0         # seconds a star floats across the screen
+STAR_END_FREE = 3.0     # no star in the last seconds of the song
+STAR_SIZE = 0.05        # star radius, as part of the image height (36 px at 720p)
+STAR_REACH = 0.08       # a wrist this close to the star (part of the image height, 58 px at 720p) grabs it
+STAR_BURST_TIME = 0.9   # seconds the "+100" stays after a grab

@@ -1,6 +1,5 @@
 numpy
 opencv-python
-pymixbox
 scipy
 ultralytics
 openvino

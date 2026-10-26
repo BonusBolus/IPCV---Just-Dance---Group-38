@@ -1,11 +1,6 @@
 import cv2
-import mixbox
 import config
 
-
-def mix_colors(rgb1, rgb2, ratio):
-    r, g, b = mixbox.lerp(rgb1, rgb2, ratio)
-    return (b, g, r)
 
 def put_text_left(frame, text, bottom_left, font, scale, color, thickness=1):
     x = bottom_left[0]

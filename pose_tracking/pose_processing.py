@@ -1,7 +1,24 @@
 from ultralytics import YOLO
 import numpy as np
-import cv2
 import config
+
+
+def use_one_openvino_core():
+    """Make Ultralytics use one OpenVINO Core for all models (pose and segmentation).
+
+    Ultralytics makes a new Core for every model and asks it for the available devices. On some laptops
+    (seen on an AMD Ryzen AI laptop, OpenVINO 2026.4) the second Core crashes the whole program while it
+    looks for Intel GPU/NPU devices: "segfault in libze_loader.so". With one Core the devices are searched
+    only once. Call this before a model is loaded; calling it again does nothing."""
+    import openvino
+    if getattr(openvino.Core, "shared", False):
+        return
+    core = openvino.Core()
+
+    def shared_core(*args, **kwargs):
+        return core
+    shared_core.shared = True
+    openvino.Core = shared_core
 
 
 def load_pose_model():
@@ -12,6 +29,7 @@ def load_pose_model():
     `dynamic=True` makes it work for every camera size, like PyTorch."""
     if not config.USE_OPENVINO:
         return YOLO(str(config.YOLO_MODEL_PATH))
+    use_one_openvino_core()
     folder = config.YOLO_MODEL_PATH.with_name(config.YOLO_MODEL_PATH.stem + "_openvino_model")
     if not folder.exists():
         print("Converting the YOLO model to OpenVINO (only the first time)...")
@@ -209,21 +227,3 @@ class PoseEstimator:
             self.previous_motion = motion
     
             return keypoints, motion
-
-
-# def draw_keypoints(image, keypoints, confidence_threshold=0.1):
-#     """
-#     Draw detected pose keypoints on the image.
-#     keypoints shape:
-#         (num_people, num_keypoints, 3)
-
-#     Last dimension:
-#         [x, y, confidence]
-#     """
-
-#     for person in keypoints:
-#         for x, y, confidence in person:
-#             if confidence < confidence_threshold:
-#                 continue
-#             cv2.circle(image, (int(x), int(y)), 4, (0, 255, 0), -1,)
-#     return image

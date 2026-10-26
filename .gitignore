@@ -227,3 +227,9 @@ yolo26n-pose.pt
 
 # Music: use .ogg files in choreography/ (about 8x smaller than .wav)
 choreography/*.wav
+
+# person segmentation model (Ultralytics downloads it when missing)
+yolo26n-seg.pt
+
+# environment for building the executable (README, "Make an executable")
+build-env/

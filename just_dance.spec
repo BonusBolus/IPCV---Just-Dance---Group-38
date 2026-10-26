@@ -13,16 +13,21 @@ from PyInstaller.utils.hooks import collect_all
 ROOT = Path(SPECPATH)
 MODEL = ROOT / "yolo26n-pose.pt"
 OPENVINO_MODEL = ROOT / "yolo26n-pose_openvino_model"
+SEGMENT_MODEL = ROOT / "yolo26n-seg.pt"
+SEGMENT_OPENVINO_MODEL = ROOT / "yolo26n-seg_openvino_model"
 
-if not OPENVINO_MODEL.exists():
-    # the game loads this folder (pose_processing.load_pose_model); make it once before packing
-    from ultralytics import YOLO
-    YOLO(str(MODEL)).export(format="openvino", dynamic=True)
+# the game loads these folders (pose_processing.load_pose_model, background/segmentation.py); make them once before packing
+for model, folder in ((MODEL, OPENVINO_MODEL), (SEGMENT_MODEL, SEGMENT_OPENVINO_MODEL)):
+    if not folder.exists():
+        from ultralytics import YOLO
+        YOLO(str(model)).export(format="openvino", dynamic=True)
 
 # files the game reads, at the same place as in the project (config.ROOT points to the package folder)
 datas = [
     (str(MODEL), "."),
     (str(OPENVINO_MODEL), OPENVINO_MODEL.name),
+    (str(SEGMENT_MODEL), "."),
+    (str(SEGMENT_OPENVINO_MODEL), SEGMENT_OPENVINO_MODEL.name),
     (str(ROOT / "face_tracking" / "face_detection_yunet_2023mar.onnx"), "face_tracking"),
 ]
 datas += [(str(path), "choreography") for path in sorted((ROOT / "choreography").glob("*.json"))]
