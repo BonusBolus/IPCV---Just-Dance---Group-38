@@ -8,7 +8,8 @@ the players out of the camera image and put them on a stage.
 **Finding the players** (`background/segmentation.py`)
 
 - A second YOLO model, `yolo26n-seg` (segmentation), finds every person and gives each one a **mask**: a small
-  image where 1 = person and 0 = room. It runs with OpenVINO on a copy of 480 px wide (`SEGMENT_SIZE`), about 9 ms.
+  image where 1 = person and 0 = room. It runs with OpenVINO on a copy of 320 px wide (`SEGMENT_SIZE`). 480 px gives slightly cleaner edges, but
+  costs 8-11 ms more per frame: the segmentation and the pose model compete for the CPU, so both get slower.
 - It runs in its **own thread**, at the same time as the pose model and the faces, so the game is hardly slower.
 - **Only the players stay** (`PlayerMasker`). A mask is kept when its box overlaps a player's box (`BOX_OVERLAP`).
   Someone who walks past in the back is not a player, so they disappear into the stage.
