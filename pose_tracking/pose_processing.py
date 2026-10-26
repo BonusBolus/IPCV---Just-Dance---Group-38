@@ -8,6 +8,21 @@ import cv2
 import config
 
 
+def use_one_openvino_core():
+    """Make Ultralytics use one OpenVINO Core for all models."""
+    import openvino
+
+    if getattr(openvino.Core, "shared", False):
+        return
+    core = openvino.Core()
+
+    def shared_core(*args, **kwargs):
+        return core
+
+    shared_core.shared = True
+    openvino.Core = shared_core
+
+
 def load_pose_model():
     """The YOLO pose model. With USE_OPENVINO it runs about 2x faster on the CPU. Convert to correct model based
     on use openvino parameter
