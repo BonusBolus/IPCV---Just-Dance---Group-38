@@ -233,3 +233,9 @@ yolo26n-seg.pt
 
 # environment for building the executable (README, "Make an executable")
 build-env/
+
+# results of python main.py --measure
+measurements/
+
+# videos of python main.py --record
+recordings/

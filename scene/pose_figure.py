@@ -32,3 +32,26 @@ def draw_pose(frame, pose, center_x, nose_y, scale, color, thickness=1):
         if pose_points.get(start) is not None and pose_points.get(end) is not None:
             cv2.line(frame, to_pixels(pose_points[start]), to_pixels(pose_points[end]), color, thickness)
     return frame
+
+
+def blend_poses(pose_a, pose_b, amount):
+    """A pose between pose_a (amount 0) and pose_b (amount 1). A point missing in one pose is taken from
+    the pose it is closest to."""
+    blended = {}
+    for name in set(pose_a) | set(pose_b):
+        a, b = pose_a.get(name), pose_b.get(name)
+        if a is not None and b is not None:
+            blended[name] = (a[0] + (b[0] - a[0]) * amount, a[1] + (b[1] - a[1]) * amount)
+        else:
+            blended[name] = a if amount < 0.5 else b
+    return blended
+
+
+def animated_pose(pose, next_pose, progress):
+    """The figure of a step of an animated move: it holds the pose for the first half of the step, then
+    moves smoothly to the pose of the next step (progress: 0 at the start of the step, 1 at the end).
+    The players see where to go a moment before they have to be there."""
+    if next_pose is None or progress <= 0.5:
+        return pose
+    amount = min(1.0, (progress - 0.5) * 2)
+    return blend_poses(pose, next_pose, amount * amount * (3 - 2 * amount))     # smooth start and stop

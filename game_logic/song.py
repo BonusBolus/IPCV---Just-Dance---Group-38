@@ -13,7 +13,7 @@ import json
 import os
 import statistics
 import time
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 import config
 
@@ -35,15 +35,52 @@ class Move:
     players: int = 1 #1 is single move, 2 is duet
     pose2: dict | None = None #if duet store keypoints for p2
     interaction: list = field(default_factory=list)  # list of dicts: {"pose": "pose_name", "keypoints": {...}, "players": 1, "interaction": [...]}
+    # animated moves (a list of poses that the players follow, see moves_from_beats): every step is a Move
+    group: int | None = None        # the animated move this step belongs to; None: a normal move
+    step: int = 0                   # 0 = the first step
+    steps: int = 1                  # number of steps of the animated move
+    group_name: str = ""            # the name of the animated move on screen, for example "Kazachok"
+    prev_pose: dict | None = None   # the pose of the step before (None at the first step)
+    next_pose: dict | None = None   # the pose of the next step, for the animation (None at the last step)
+
+
+def animated_move(item, i, start, music_beat, poses, file_name):
+    """An animated move: {"beat": 48, "poses": ["kazachok_left", "kazachok_right", ...], "name": "Kazachok",
+    "step_beats": 1}. Every pose is one step of step_beats MUSIC beats (default 1), so the steps stay on
+    the beat of the music, also when the other moves use a faster move_bpm. Each step is graded as a
+    normal move; the Playing state adds the chain bonus and the direction check."""
+    keys = item["poses"]
+    if len(keys) < 2:
+        raise ValueError(f'{file_name} move {i}: an animated move needs at least 2 poses')
+    for key in keys:
+        if key not in poses:
+            raise ValueError(f'{file_name} move {i}: pose "{key}" not found in poses.json')
+        if poses[key].get("players", 1) != 1:
+            raise ValueError(f'{file_name} move {i}: duet pose "{key}" cannot be a step of an animated move')
+    step_time = item.get("step_beats", 1) * music_beat
+    name = item.get("name", poses[keys[0]]["name"])
+    steps = []
+    for k, key in enumerate(keys):
+        # the end of a step is computed exactly like the start of the next one: no rounding gap or overlap
+        step_start, step_end = start + k * step_time, start + (k + 1) * step_time
+        steps.append(Move(poses[key]["name"], key, poses[key]["keypoints"], step_start, step_end,
+                          item.get("gold", False), group=i, step=k, steps=len(keys), group_name=name,
+                          prev_pose=poses[keys[k - 1]]["keypoints"] if k > 0 else None,
+                          next_pose=poses[keys[k + 1]]["keypoints"] if k + 1 < len(keys) else None))
+    return steps
 
 
 def moves_from_beats(data, poses, file_name):
     """Beat format: {"bpm": 120, "offset": 0.0, "moves": [{"beat": 4, "pose": "cactus", "beats": 2}, ...]}
-    The beats of the moves use "move_bpm" when the song has it (faster moves), else "bpm"."""
+    The beats of the moves use "move_bpm" when the song has it (faster moves), else "bpm".
+    A move with "poses" (a list) instead of "pose" is an animated move, see animated_move()."""
     beat_time = 60 / data.get("move_bpm", data["bpm"])
     offset = data.get("offset", 0.0)
     moves = []
     for i, item in enumerate(data["moves"]):
+        if "poses" in item:
+            moves += animated_move(item, i, offset + item["beat"] * beat_time, 60 / data["bpm"], poses, file_name)
+            continue
         if item["pose"] not in poses:
             raise ValueError(f'{file_name} move {i}: pose "{item["pose"]}" not found in poses.json')
         pose = poses[item["pose"]]
@@ -83,8 +120,7 @@ def repeat_moves(moves, music_length):
     shift = max(last.start - first.start + statistics.median(steps), last.end - first.start)
     round_moves, repeated = list(moves), list(moves)
     while True:
-        round_moves = [Move(m.name, m.key, m.pose, m.start + shift, m.end + shift, m.gold, m.players,
-                            m.pose2, m.interaction) for m in round_moves]
+        round_moves = [replace(m, start=m.start + shift, end=m.end + shift) for m in round_moves]
         fitting = [m for m in round_moves if m.end + config.GRADE_GRACE <= music_length]
         repeated += fitting
         if len(fitting) < len(round_moves):
@@ -164,12 +200,22 @@ class Song:
         return self.moves[-1].end
 
     @property
+    def play_length(self):
+        """Seconds the song is played: its length, but at most SONG_MAX_TIME."""
+        return self.length if config.SONG_MAX_TIME is None else min(self.length, config.SONG_MAX_TIME)
+
+    @property
+    def played_moves(self):
+        """The moves that come before the song stops (play_length)."""
+        return [move for move in self.moves if move.start < self.play_length]
+
+    @property
     def duet_moves(self):
-        return sum(move.players == 2 for move in self.moves)
+        return sum(move.players == 2 for move in self.played_moves)
 
     @property
     def gold_moves(self):
-        return sum(move.gold for move in self.moves)
+        return sum(move.gold for move in self.played_moves)
 
     def start(self):
         self.started_at = time.perf_counter()
@@ -188,6 +234,11 @@ class Song:
 
     def music_playing(self):
         return self.has_audio and pygame.mixer.music.get_busy()
+
+    def fade_out(self, seconds):
+        """Let the music fade out (it keeps playing quietly until then; the song clock keeps running)."""
+        if self.has_audio:
+            pygame.mixer.music.fadeout(int(seconds * 1000))
 
     def stop(self):
         if self.has_audio:
@@ -210,6 +261,8 @@ class Song:
     def is_finished(self, t):
         if self.started_at is None:
             return False
+        if config.SONG_MAX_TIME is not None and t >= config.SONG_MAX_TIME:
+            return True                                # stopped early (SONG_MAX_TIME, for the demo video)
         if self.has_audio:
             return not pygame.mixer.music.get_busy()
         return t > self.moves[-1].end + 2.0

@@ -41,6 +41,8 @@ python main.py --windowed       # a window instead of full screen (q or ESC clos
    points once: Perfect, Good, OK or Miss, shown next to your score (your score is on your side of the bar).
    Gold moves count double. The player who is ahead wears a gold crown. If you walk out of the image, the game
    warns you and the song keeps going.
+   **Animated moves** (magenta): the figure on the card moves, follow it step by step. Every correct step in a row
+   makes your chain longer and gives extra points ("Chain x3").
    **Bonus star:** now and then a gold star floats across the screen at hand height. The first player who touches
    it with a hand gets **+100** points.
 5. **Results:** the scores and the winner. Raise both hands (or wait 20 s) to go back to the song selection.
@@ -91,3 +93,6 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | [docs/face_tracking.md](docs/face_tracking.md) | Face detection, big heads, the crown and the player label |
 | [docs/identity_tracking.md](docs/identity_tracking.md) | How players are recognised by their shirt colour |
 | [docs/background_and_star.md](docs/background_and_star.md) | The stage behind the players and the bonus star |
+| [docs/animated_moves.md](docs/animated_moves.md) | Animated moves: a movement to follow, the chain bonus and the motion check |
+| [docs/measurements.md](docs/measurements.md) | Measuring the frame rate and the time of every stage (`--measure`) |
+| [docs/demo_video.md](docs/demo_video.md) | Recording the demo video (`--record`) and what the 55 s of Rasputin show |

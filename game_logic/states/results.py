@@ -13,6 +13,8 @@ class ResultsState(State):
         self.duet_bonus_since = game.states["playing"].duet_bonus_since
 
     def update(self, game):
+        if getattr(game, "recorder", None) is not None:
+            return None                                  # recording: the results stay until the video ends
         waited = game.now - self.start
         if waited >= config.RESULTS_MAX_TIME:
             return "song_select"
@@ -23,7 +25,8 @@ class ResultsState(State):
         return None
 
     def draw(self, game, image):
-        show_hint = game.now - self.start >= config.RESULTS_MIN_TIME
+        # no "Raise both hands to play again" while recording: then the results stay until the video ends
+        show_hint = game.now - self.start >= config.RESULTS_MIN_TIME and getattr(game, "recorder", None) is None
         player_1, player_2 = game.players[1], game.players[2]
         if player_1["score"] == player_2["score"]:
             winner = None                                # a draw

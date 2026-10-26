@@ -33,6 +33,7 @@ GREY = (170, 170, 170)
 GREEN = (80, 220, 80)
 GOLD = (0, 215, 255)
 DUET = (255, 220, 80)
+FLOW = (220, 80, 255)    # animated moves (magenta)
 RATING_COLORS = {"Perfect": GOLD, "Good": GREEN, "OK": (255, 200, 80), "Miss": (60, 60, 230)}
 
 
