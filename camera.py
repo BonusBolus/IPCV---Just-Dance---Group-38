@@ -16,6 +16,7 @@ class Frame:
     index: int         # frame number
     full: np.ndarray | None = None   # the camera image at full size (CAMERA_SIZE), for small details such as
                                      # faces; None when it is the same as `image`
+    capture_ms: float = float("nan")  # time to decode and prepare this image (for the measurements)
 
     @property
     def detail(self):
@@ -74,11 +75,13 @@ class Camera:
     def _read_newest(self):
         """Background thread: read the webcam all the time, keep only the newest image."""
         while self.running:
-            ok, image = self.cap.read()
+            ok = self.cap.grab()                      # waits for the camera
             capture_time = time.perf_counter()
+            ok, image = self.cap.retrieve() if ok else (False, None)    # decodes the image
             images = self._prepare(image) if ok else None
+            capture_ms = (time.perf_counter() - capture_time) * 1000
             with self.new_image:
-                self.latest = (ok, images, capture_time)
+                self.latest = (ok, images, capture_time, capture_ms)
                 self.new_image.notify()
             if not ok:
                 break
@@ -90,16 +93,18 @@ class Camera:
                     if not self.thread.is_alive():
                         return None             # the webcam stopped
                     self.new_image.wait(timeout=0.5)
-                ok, images, capture_time = self.latest
+                ok, images, capture_time, capture_ms = self.latest
                 self.latest = None
         else:
-            ok, image = self.cap.read()
+            ok = self.cap.grab()
             capture_time = time.perf_counter()
+            ok, image = self.cap.retrieve() if ok else (False, None)
             images = self._prepare(image) if ok else None
+            capture_ms = (time.perf_counter() - capture_time) * 1000
         if not ok:
             return None
         image, full = images
-        frame = Frame(image, capture_time, self.index, full)
+        frame = Frame(image, capture_time, self.index, full, capture_ms)
         self.index += 1
         return frame
 

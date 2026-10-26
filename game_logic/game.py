@@ -13,6 +13,7 @@ from face_tracking.head_filter import enlarge_heads
 from background.segmentation import PersonSegmenter, PlayerMasker
 from background.stage import Stage
 from face_tracking.game_effects import add_crown, add_player_label, faces_for_players
+from game_logic.measurements import NoMeasurements, timed
 from game_logic.pose_grading import PoseGrader
 from game_logic.song import find_songs
 from game_logic.states.countdown import CountdownState
@@ -52,10 +53,12 @@ NEXT_STATE = {"song_select": "registration", "registration": "countdown", "count
 
 
 class Game:
-    def __init__(self, camera, debug=False, fullscreen=True):
+    def __init__(self, camera, debug=False, fullscreen=True, measure=None, duration=None):
         self.camera = camera
         self.debug = debug
         self.fullscreen = fullscreen
+        self.measure = measure or NoMeasurements()    # --measure: times of every stage (measurements.py)
+        self.duration = duration                       # --duration: stop after this many seconds
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
@@ -106,38 +109,62 @@ class Game:
         if self.state is None:
             self.change_state("song_select")
 
-        faces_future = self.face_thread.submit(find_faces, frame.image)    # starts now, in the second thread
-        people_future = self.segment_thread.submit(self.segmenter.find_people, frame.image) if self.segmenter else None
-        keypoints, _ = self.pose_estimator.process(frame.image)
-        self.players = self.tracker.update(frame.image, people_from_pose(keypoints, min_confidence=0.1))
+        m = self.measure
+        m.start_frame(frame, self.state_name)
+        step_start = time.perf_counter()
+        # face detection and segmentation start now, in their own threads (timed() also gives their time)
+        faces_future = self.face_thread.submit(timed, find_faces, frame.image)
+        people_future = (self.segment_thread.submit(timed, self.segmenter.find_people, frame.image)
+                         if self.segmenter else None)
+        with m.stage("t2_pose"):
+            keypoints, _ = self.pose_estimator.process(frame.image)
+        with m.stage("t3_identity"):
+            self.players = self.tracker.update(frame.image, people_from_pose(keypoints, min_confidence=0.1))
 
-        next_state = self.state.update(self)
-        if next_state:
-            self.change_state(next_state)
+        with m.stage("t4_logic"):
+            next_state = self.state.update(self)
+            if next_state:
+                self.change_state(next_state)
 
         image = frame.image.copy()
-        faces = faces_future.result()                  # wait for the face thread (usually done already)
-        # Only faces that belong to a player get effects: no crowns on bystanders or false detections
-        self.heads = faces_for_players(self.players, faces)
+        with m.stage("wait_threads"):
+            faces, faces_ms = faces_future.result()    # wait for the face thread (usually done already)
+        m.add("t1_faces", faces_ms)
+        with m.stage("t3_identity"):
+            # Only faces that belong to a player get effects: no crowns on bystanders or false detections
+            self.heads = faces_for_players(self.players, faces)
         player_faces = [face for face in self.heads.values() if face is not None]
-        # only the players stay, the room becomes the stage (mask: 1 = player, 0 = room)
-        # (other people are only removed while the players are fixed, see PlayerMasker)
-        players_fixed = self.state_name in ("countdown", "playing", "results")
-        mask = (self.masker.mask(people_future.result(), self.players.values(), image.shape, self.now, players_fixed)
-                if people_future else None)
-        # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
-        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image),
-                      mask=mask)
-        if mask is not None:
-            self.stage.place_players(image, mask, self.now)
-        leader = crown_holder(self.players)
-        if leader is not None and self.heads[leader] is not None:
-            add_crown(image, [self.heads[leader]])
-        # The player label sits on the crown band (on the forehead when there is no crown)
-        for player_id, face in self.heads.items():
-            if face is not None:
-                add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
-        self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
+        m.count("people", len(keypoints))
+        m.count("faces", len(faces))
+        m.count("players_visible", sum(player["visible"] for player in self.players.values()))
+        m.count("heads", len(player_faces))
+        mask = None
+        if people_future:
+            with m.stage("wait_threads"):
+                people, segment_ms = people_future.result()
+            m.add("segmentation", segment_ms)
+            with m.stage("t5_render"):
+                # only the players stay, the room becomes the stage (mask: 1 = player, 0 = room)
+                # (other people are only removed while the players are fixed, see PlayerMasker)
+                players_fixed = self.state_name in ("countdown", "playing", "results")
+                mask = self.masker.mask(people, self.players.values(), image.shape, self.now, players_fixed)
+        with m.stage("t1_effects"):
+            # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
+            enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image),
+                          mask=mask)
+        with m.stage("t5_render"):
+            if mask is not None:
+                self.stage.place_players(image, mask, self.now)
+        with m.stage("t1_effects"):
+            leader = crown_holder(self.players)
+            if leader is not None and self.heads[leader] is not None:
+                add_crown(image, [self.heads[leader]])
+            # The player label sits on the crown band (on the forehead when there is no crown)
+            for player_id, face in self.heads.items():
+                if face is not None:
+                    add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
+        with m.stage("t5_render"):
+            self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
         if self.debug:
             draw_labels(image, self.players)
             self.scene.draw_player(image, self.players)
@@ -146,10 +173,12 @@ class Game:
             if current_move is not None:
                 self.scene.draw_target_pose_overlay(image, self.players, current_move.pose)
 
-        image = self.state.draw(self, image)
+        with m.stage("t5_render"):
+            image = self.state.draw(self, image)
         if self.debug:
             cv2.putText(image, f"FPS: {self.fps.fps:.1f}  state: {self.state_name}  (n = next state)",
                         (10, image.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        m.add("step", (time.perf_counter() - step_start) * 1000)
         return image
 
     def run(self):
@@ -164,18 +193,27 @@ class Game:
         # Painting a full-screen window takes about 25 ms (it is scaled up in software), and this way
         # that time is no longer added to every frame. The game itself still runs one frame at a
         # time: everything happens in step(), and step() never runs twice at the same time.
+        self.measure.game_ready = time.perf_counter()
+        run_start = time.perf_counter()
+        shown_size = None
         frame = self.camera.read()
         pending = self.step_thread.submit(self.step, frame) if frame is not None else None
         while pending is not None:
             frame_start = time.perf_counter()
             image = pending.result()                   # the frame that was calculated meanwhile
+            shown_index = frame.index
             frame = self.camera.read()
             pending = self.step_thread.submit(self.step, frame) if frame is not None else None
             self.fps.update()
             if not window_sized:                       # start with the size of the camera image
                 cv2.resizeWindow(WINDOW_NAME, image.shape[1], image.shape[0])
                 window_sized = True
+            display_start = time.perf_counter()
+            shown_size = f"{image.shape[1]}x{image.shape[0]}"
             cv2.imshow(WINDOW_NAME, image)
+            self.measure.frame_shown(shown_index, (time.perf_counter() - display_start) * 1000)
+            if self.duration is not None and time.perf_counter() - run_start >= self.duration:
+                break                                  # --duration: the measurement is long enough
 
             # Wait for the rest of this frame's time, so the game never runs faster than MAX_FPS.
             # waitKey does the waiting, so the window stays responsive (and q / ESC still work).
@@ -187,6 +225,8 @@ class Game:
                 self.skip_state = True                 # step() switches the state before the next frame
         if pending is not None:
             pending.result()                           # let the frame that is still running finish
+        self.measure.finish(f"song: {self.song.title}, game image {shown_size}, "
+                            f"camera image {config.CAMERA_SIZE[0]}x{config.CAMERA_SIZE[1]} asked")
 
         self.song.stop()
         self.step_thread.shutdown()
