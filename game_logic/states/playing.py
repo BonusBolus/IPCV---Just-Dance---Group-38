@@ -112,12 +112,16 @@ class PlayingState(State):
                 if game.pose_grader.interaction_met(ordered, move.key):
                     self.interacted = True
 
-        # the song stops at SONG_MAX_TIME: fade the music out just before
-        if (config.SONG_MAX_TIME is not None and not self.fading
-                and config.SONG_MAX_TIME - config.SONG_FADE_TIME <= t < config.SONG_MAX_TIME):
+        # the song stops at SONG_MAX_TIME, or earlier when recording (song_deadline: the results must fill
+        # the end of the video); the music fades out just before
+        stop_at = config.SONG_MAX_TIME if config.SONG_MAX_TIME is not None else math.inf
+        deadline = getattr(game, "song_deadline", None)
+        if deadline is not None:
+            stop_at = min(stop_at, t + (deadline - game.now))
+        if not self.fading and stop_at - config.SONG_FADE_TIME <= t < stop_at:
             game.song.fade_out(config.SONG_FADE_TIME)
             self.fading = True
-        if game.song.is_finished(t):
+        if game.song.is_finished(t) or t >= stop_at:
             self.finish_move(game)
             return "results"
         return None

@@ -20,7 +20,8 @@ WRISTS = ("left_wrist", "right_wrist")
 class BonusStar:
     def __init__(self, seed=None):
         self.random = random.Random(seed)
-        self.next_start = self._gap()   # song time of the next star
+        self.times = list(config.STAR_TIMES) if config.STAR_TIMES else None   # fixed times (demo video)
+        self.next_start = self.times.pop(0) if self.times else self._gap()   # song time of the next star
         self.start = None               # song time the current star appeared; None: no star now
         self.from_left = self.random.random() < 0.5
         self.band = None                # (top y, bottom y) of hand height, in image pixels
@@ -64,7 +65,12 @@ class BonusStar:
     def _next(self, t):
         self.start = None
         self.position = None
-        self.next_start = t + self._gap()
+        if self.times is not None:
+            self.next_start = self.times.pop(0) if self.times else math.inf   # the next fixed time, or no more
+            while self.next_start < t:                                          # (a fixed time already passed)
+                self.next_start = self.times.pop(0) if self.times else math.inf
+        else:
+            self.next_start = t + self._gap()
         self.from_left = not self.from_left
 
     def _follow_players(self, visible, height):

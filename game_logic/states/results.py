@@ -13,6 +13,8 @@ class ResultsState(State):
         self.duet_bonus_since = game.states["playing"].duet_bonus_since
 
     def update(self, game):
+        if getattr(game, "recorder", None) is not None:
+            return None                                  # recording: the results stay until the video ends
         waited = game.now - self.start
         if waited >= config.RESULTS_MAX_TIME:
             return "song_select"

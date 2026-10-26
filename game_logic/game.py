@@ -74,6 +74,7 @@ class Game:
         self.measure = measure or NoMeasurements()    # --measure: times of every stage (measurements.py)
         self.duration = duration                       # --duration: stop after this many seconds
         self.recorder = recorder                       # --record: webcam and game as videos (recorder.py)
+        self.song_deadline = None                      # --record: time (perf_counter) the song must stop
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
@@ -184,26 +185,27 @@ class Game:
         with m.stage("t5_render"):
             self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
         self.show_debug = self.debug or self.debug_shown()
+        with m.stage("t5_render"):
+            image = self.state.draw(self, image)
         if self.show_debug:
+            # on top of the state's screen, so they also show on the (darkened) results screen
             draw_labels(image, self.players)
             self.scene.draw_player(image, self.players)
             t = self.song.time()
             current_move = self.song.current_move(t) or self.song.grading_move(t) or self.song.next_move(t)
-            if current_move is not None:
+            if current_move is not None and self.state_name == "playing":
                 self.scene.draw_target_pose_overlay(image, self.players, current_move.pose)
-
-        with m.stage("t5_render"):
-            image = self.state.draw(self, image)
-        if self.show_debug:
             cv2.putText(image, f"FPS: {self.fps.fps:.1f}  state: {self.state_name}  (n = next state)",
                         (10, image.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         m.add("step", (time.perf_counter() - step_start) * 1000)
         return image
 
     def debug_shown(self):
-        """True from DEBUG_SHOW_AT to DEBUG_SHOW_AT + DEBUG_SHOW_FOR seconds into the song (state Playing):
-        then the debug drawings (skeletons, boxes, target pose, FPS) show by themselves for a moment, so the
-        demo video shows the tracking. The n key (next state) still only works with --debug."""
+        """The debug drawings (skeletons, boxes, FPS) show by themselves on the results screen (DEBUG_IN_RESULTS),
+        and from DEBUG_SHOW_AT to DEBUG_SHOW_AT + DEBUG_SHOW_FOR seconds into the song, so the demo video
+        shows the tracking. The n key (next state) still only works with --debug."""
+        if config.DEBUG_IN_RESULTS and self.state_name == "results":
+            return True
         if config.DEBUG_SHOW_AT is None or self.state_name != "playing":
             return False
         return config.DEBUG_SHOW_AT <= self.song.time() < config.DEBUG_SHOW_AT + config.DEBUG_SHOW_FOR
@@ -223,6 +225,9 @@ class Game:
         self.measure.game_ready = time.perf_counter()
         run_start = time.perf_counter()
         shown_size = None
+        if self.recorder is not None and self.duration is not None:
+            # the results fill the last RECORD_RESULTS_TIME of the video, however long the start took
+            self.song_deadline = run_start + self.duration - config.RECORD_RESULTS_TIME
         frame = self.camera.read()
         pending = self.step_thread.submit(self.step, frame) if frame is not None else None
         while pending is not None:
