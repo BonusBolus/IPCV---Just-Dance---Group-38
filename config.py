@@ -26,6 +26,8 @@ BACKGROUND = True            # replace the room with the Just Dance stage (perso
 SEGMENT_MODEL_PATH = ROOT / "yolo26n-seg.pt"   # Ultralytics downloads it when it is missing
 SEGMENT_SIZE = 480           # the segmentation looks at a copy this big: 480 = clean edges, about 9 ms
 BOX_OVERLAP = 0.5            # a person belongs to a player when their boxes overlap this much (bystanders vanish)
+REMOVE_BYSTANDERS = True     # remove people who are not a player (only during countdown, playing, results)
+PLAYER_KEEP_TIME = 1.0       # seconds a player who is not seen for a moment keeps their place on the stage
 MASK_SOFTNESS = 1.5          # pixels: how soft the edge around the players is
 HEAD_ENLARGEMENT = 1.35
 PLAYER_COLOR = "player_color"

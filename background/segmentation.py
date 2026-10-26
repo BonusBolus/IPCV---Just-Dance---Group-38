@@ -60,19 +60,18 @@ class PersonSegmenter:
         return result.boxes.xyxy.cpu().numpy(), masks
 
 
-def player_mask(people, players, image_shape):
-    """One soft mask (float32, 0..1, image size) with only the people that belong to a visible player.
+def player_mask(people, player_boxes, image_shape):
+    """One soft mask (float32, 0..1, image size) with the people that belong to a player.
 
-    people:  find_people() of this frame
-    players: the player dicts; a person belongs to a player when their boxes overlap (BOX_OVERLAP).
-             When no player is visible (for example the pose model missed a frame), everyone is kept,
-             so the players never disappear for a moment."""
+    people:       find_people() of this frame
+    player_boxes: (x, y, w, h) of the players; a person belongs to a player when their boxes overlap
+                  (BOX_OVERLAP). None or an empty list: everyone is kept (better an extra person on the
+                  stage than a player who disappears)."""
     height, width = image_shape[:2]
     boxes, masks = people
     if masks is None:
         return np.zeros((height, width), np.float32)
-    player_boxes = [(x, y, x + w, y + h) for x, y, w, h in
-                    (player["box"] for player in players if player["visible"] and player["box"] is not None)]
+    player_boxes = [(x, y, x + w, y + h) for x, y, w, h in (player_boxes or [])]
     keep = [i for i, box in enumerate(boxes)
             if not player_boxes or any(box_overlap(box, p) >= config.BOX_OVERLAP for p in player_boxes)]
     if not keep:
@@ -83,3 +82,25 @@ def player_mask(people, players, image_shape):
     mask = np.clip((mask - 0.45) * 5.0, 0.0, 1.0)
     mask = cv2.GaussianBlur(mask, (0, 0), config.MASK_SOFTNESS * mask.shape[1] / width)
     return cv2.resize(mask, (width, height), interpolation=cv2.INTER_LINEAR)
+
+
+class PlayerMasker:
+    """player_mask() for the game, made careful: a player must never disappear from the stage.
+
+    - A player the tracker does not see for a moment (someone stands close by, or walks past in front)
+      keeps their last place for PLAYER_KEEP_TIME, so the person there stays on the stage.
+    - Other people are only removed while the players are fixed (countdown, playing, results). In the
+      song selection and the registration everyone stays: people still have to step in there.
+    - REMOVE_BYSTANDERS = False in config.py keeps everyone, always."""
+
+    def __init__(self):
+        self.last_seen = {}     # player id -> (box, time)
+
+    def mask(self, people, players, image_shape, now, players_fixed):
+        for player in players:
+            if player["visible"] and player["box"] is not None:
+                self.last_seen[player["id"]] = (player["box"], now)
+        if not (config.REMOVE_BYSTANDERS and players_fixed):
+            return player_mask(people, None, image_shape)
+        boxes = [box for box, seen in self.last_seen.values() if now - seen <= config.PLAYER_KEEP_TIME]
+        return player_mask(people, boxes, image_shape)

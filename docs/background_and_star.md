@@ -10,9 +10,14 @@ the players out of the camera image and put them on a stage.
 - A second YOLO model, `yolo26n-seg` (segmentation), finds every person and gives each one a **mask**: a small
   image where 1 = person and 0 = room. It runs with OpenVINO on a copy of 480 px wide (`SEGMENT_SIZE`), about 9 ms.
 - It runs in its **own thread**, at the same time as the pose model and the faces, so the game is hardly slower.
-- **Only the players stay.** A mask is kept when its box overlaps a player's box (`BOX_OVERLAP`). Someone who walks
-  past in the back is not a player, so they disappear into the stage.
-- When the pose model misses the players for a frame, all people stay, so the players never blink away.
+- **Only the players stay** (`PlayerMasker`). A mask is kept when its box overlaps a player's box (`BOX_OVERLAP`).
+  Someone who walks past in the back is not a player, so they disappear into the stage.
+- **A player must never disappear**: that is worse than an extra person on the stage. So:
+  - a player the tracker does not see for a moment keeps their place for 1 s (`PLAYER_KEEP_TIME`);
+  - other people are only removed while the players are fixed (countdown, playing, results). In the song
+    selection and the registration everyone stays, because people still have to step in there;
+  - when no player is known, everyone stays;
+  - `REMOVE_BYSTANDERS = False` keeps everyone, always.
 - YOLO makes the image a multiple of 32 px with a border; `remove_padding()` cuts that border off the masks,
   so they fit the image again.
 - The edge is moved a little inside the person (no light rim of the room) and made soft (`MASK_SOFTNESS`).

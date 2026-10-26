@@ -5,7 +5,8 @@ import unittest
 import cv2
 import numpy as np
 
-from background.segmentation import box_overlap, player_mask, remove_padding
+import config
+from background.segmentation import PlayerMasker, box_overlap, player_mask, remove_padding
 from background.stage import Stage
 from face_tracking.head_filter import enlarge_heads
 
@@ -42,7 +43,7 @@ class MaskTests(unittest.TestCase):
 
     def test_only_the_players_stay(self):
         found = people(person(100, 200, 300, 700), person(900, 200, 1100, 700), person(560, 100, 640, 300))
-        mask = player_mask(found, [player(110, 210, 290, 690), player(910, 210, 1090, 690)], (H, W))
+        mask = player_mask(found, [(110, 210, 180, 480), (910, 210, 180, 480)], (H, W))
         self.assertGreater(mask[450, 200], 0.99)                # player 1
         self.assertGreater(mask[450, 1000], 0.99)               # player 2
         self.assertLess(mask[200, 600], 0.01)                   # the bystander in the back is gone
@@ -50,13 +51,55 @@ class MaskTests(unittest.TestCase):
 
     def test_everyone_stays_when_no_player_is_seen(self):
         found = people(person(100, 200, 300, 700))
-        mask = player_mask(found, [player(0, 0, 1, 1, visible=False)], (H, W))
+        mask = player_mask(found, [], (H, W))
         self.assertGreater(mask[450, 200], 0.99)                # not suddenly gone when the pose misses a frame
 
     def test_nobody_found(self):
-        mask = player_mask((np.zeros((0, 4)), None), [], (H, W))
+        mask = player_mask((np.zeros((0, 4)), None), None, (H, W))
         self.assertEqual(mask.shape, (H, W))
         self.assertEqual(mask.max(), 0.0)
+
+
+class PlayerMaskerTests(unittest.TestCase):
+    """Players must never disappear: better an extra person on the stage than a player who is gone."""
+
+    def setUp(self):
+        # player 1 and 2, and a bystander between them
+        self.found = people(person(100, 200, 300, 700), person(900, 200, 1100, 700), person(560, 100, 640, 300))
+        self.players = [dict(player(110, 210, 290, 690), id=1), dict(player(910, 210, 1090, 690), id=2)]
+        self.masker = PlayerMasker()
+
+    def test_while_playing_the_bystander_is_removed(self):
+        mask = self.masker.mask(self.found, self.players, (H, W), 10.0, players_fixed=True)
+        self.assertGreater(mask[450, 1000], 0.99)
+        self.assertLess(mask[200, 600], 0.01)
+
+    def test_a_player_not_seen_for_a_moment_stays(self):
+        self.masker.mask(self.found, self.players, (H, W), 10.0, players_fixed=True)
+        self.players[1] = dict(self.players[1], visible=False, box=None)      # the tracker misses player 2
+        mask = self.masker.mask(self.found, self.players, (H, W), 10.5, players_fixed=True)
+        self.assertGreater(mask[450, 1000], 0.99)                              # still on the stage
+        self.assertLess(mask[200, 600], 0.01)                                  # the bystander still not
+
+    def test_a_player_gone_for_long_is_no_longer_kept(self):
+        self.masker.mask(self.found, self.players, (H, W), 10.0, players_fixed=True)
+        self.players[1] = dict(self.players[1], visible=False, box=None)
+        mask = self.masker.mask(self.found, self.players, (H, W), 10.0 + config.PLAYER_KEEP_TIME + 0.5,
+                                players_fixed=True)
+        self.assertLess(mask[450, 1000], 0.01)       # someone else standing there now is a bystander
+
+    def test_before_the_players_are_fixed_everyone_stays(self):
+        mask = self.masker.mask(self.found, self.players, (H, W), 10.0, players_fixed=False)   # registration
+        self.assertGreater(mask[200, 600], 0.99)
+
+    def test_switched_off_everyone_stays(self):
+        old = config.REMOVE_BYSTANDERS
+        config.REMOVE_BYSTANDERS = False
+        try:
+            mask = self.masker.mask(self.found, self.players, (H, W), 10.0, players_fixed=True)
+        finally:
+            config.REMOVE_BYSTANDERS = old
+        self.assertGreater(mask[200, 600], 0.99)
 
 
 class StageTests(unittest.TestCase):

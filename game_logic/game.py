@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from camera import FPSCounter
 from face_tracking.face_tracking import get_face_properties, smooth_face_properties
 from face_tracking.head_filter import enlarge_heads
-from background.segmentation import PersonSegmenter, player_mask
+from background.segmentation import PersonSegmenter, PlayerMasker
 from background.stage import Stage
 from face_tracking.game_effects import add_crown, add_player_label, faces_for_players
 from game_logic.pose_grading import PoseGrader
@@ -75,6 +75,7 @@ class Game:
         self.segmenter = PersonSegmenter() if config.BACKGROUND else None
         self.segment_thread = ThreadPoolExecutor(max_workers=1) if config.BACKGROUND else None
         self.stage = Stage()
+        self.masker = PlayerMasker()                           # which people stay on the stage
         self.skip_state = False                                # debug key n: next state, done in step()
         self.states = {
             "song_select": SongSelectState(),
@@ -120,7 +121,10 @@ class Game:
         self.heads = faces_for_players(self.players, faces)
         player_faces = [face for face in self.heads.values() if face is not None]
         # only the players stay, the room becomes the stage (mask: 1 = player, 0 = room)
-        mask = player_mask(people_future.result(), self.players.values(), image.shape) if people_future else None
+        # (other people are only removed while the players are fixed, see PlayerMasker)
+        players_fixed = self.state_name in ("countdown", "playing", "results")
+        mask = (self.masker.mask(people_future.result(), self.players.values(), image.shape, self.now, players_fixed)
+                if people_future else None)
         # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
         enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image),
                       mask=mask)
