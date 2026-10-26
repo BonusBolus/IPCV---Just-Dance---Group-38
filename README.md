@@ -23,9 +23,14 @@ python main.py --camera 1       # another webcam
 python main.py --video file.mp4 # a video file instead of the webcam
 python main.py --debug          # debug drawings (boxes, FPS, state); n jumps to the next state
 python main.py --windowed       # a window instead of full screen (q or ESC closes the game)
+python main.py --pose-timing pose_timing.csv  # save pose latency samples and summary
 ```
 
 `q` or `ESC` closes the game. That is only a safety exit: the game itself is played with gestures.
+
+`--pose-timing` records the latency of each `PoseEstimator.process()` call. When the game
+exits, it writes the raw samples to the requested CSV path and writes the mean, minimum
+and maximum latency to a sibling file named like `pose_timing_summary.csv`.
 
 ## How to play
 

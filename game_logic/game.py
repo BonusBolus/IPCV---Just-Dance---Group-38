@@ -52,11 +52,16 @@ NEXT_STATE = {"song_select": "registration", "registration": "countdown", "count
 
 
 class Game:
-    def __init__(self, camera, debug=False, fullscreen=True):
+    def __init__(self, camera, debug=False, fullscreen=True, timing_path=None):
         self.camera = camera
         self.debug = debug
         self.fullscreen = fullscreen
-        self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
+        self.pose_estimator = PoseEstimator(
+            CONFIDENCE_THRESHOLD=0.1,
+            KEYPOINTS_SMOOTHING=0.7,
+            MOTIONS_SMOOTHING=0.5,
+            timing_path=timing_path,
+        )
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
         self.songs = find_songs()                      # all songs, for the song selection
@@ -191,3 +196,15 @@ class Game:
             self.segment_thread.shutdown()
         self.camera.release()
         cv2.destroyAllWindows()
+        report = self.pose_estimator.save_timing_report()
+        if report is not None and report[0] is not None:
+            summary, timing_path, summary_path = report
+            print(f"Pose processing timings saved to {timing_path}")
+            print(f"Pose timing summary saved to {summary_path}")
+            print(
+                "Pose processing latency (ms): "
+                f"mean={summary['mean_ms']:.3f}, "
+                f"min={summary['min_ms']:.3f}, "
+                f"max={summary['max_ms']:.3f}, "
+                f"samples={summary['samples']}"
+            )
