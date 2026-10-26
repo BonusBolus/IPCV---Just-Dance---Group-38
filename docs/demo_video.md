@@ -20,10 +20,12 @@ Ubuntu with `sudo apt install ffmpeg`); without it the raw videos (`.avi`) stay 
 
 ## The 60 seconds of the video
 
-`--record` stops by itself after **60 s** (or give `--duration`). The song stops **10 s before the video ends**
-(`RECORD_RESULTS_TIME`), however long the start took, or after 30 s of song (`SONG_MAX_TIME`), whichever comes
-first. The music fades out in the last second. The last 10 s are the **results screen with the debug drawings**
-(skeletons, player boxes, FPS: `DEBUG_IN_RESULTS`); while recording, the results stay until the video ends.
+The song stops after 30 s of song (`SONG_MAX_TIME`), or earlier when the video would get longer than 60 s:
+then it stops 10 s before the 60 s (`RECORD_RESULTS_TIME`), however long the start took. The music fades out in
+the last second. Then come the **results with the debug drawings** (skeletons, player boxes, FPS:
+`DEBUG_IN_RESULTS`), and `--record` stops by itself **10 s after the results appear** (at the latest at 60 s, or
+give `--duration`). So the last 10 s of the video are always the results, and the video is never longer than 60 s.
+While recording, the results cannot be skipped (and the "Raise both hands" hint is not shown).
 
 | Part of the video | About |
 |---|---|

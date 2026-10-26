@@ -63,6 +63,16 @@ class RecordingEndTests(unittest.TestCase):
             game.now, game.song.time.return_value = 105.0, 15.0
             self.assertEqual(state.update(game), "results")                # the deadline: the results
 
+    def test_while_recording_there_is_no_play_again_hint(self):
+        state = ResultsState()
+        game = SimpleNamespace(song=Mock(), now=0.0, recorder=object(), players={1: {"score": 2}, 2: {"score": 1}},
+                               states={"playing": SimpleNamespace(duet_bonus_since=None)})
+        state.enter(game)
+        game.now = 50.0
+        with patch("game_logic.states.results.draw_results", return_value="image") as draw:
+            state.draw(game, "image")
+        self.assertFalse(draw.call_args.args[4])                 # show_hint (image, players, winner, progress, show_hint)
+
     def test_while_recording_the_results_stay(self):
         state = ResultsState()
         game = SimpleNamespace(song=Mock(), now=0.0, recorder=object(), players={},

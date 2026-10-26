@@ -75,6 +75,7 @@ class Game:
         self.duration = duration                       # --duration: stop after this many seconds
         self.recorder = recorder                       # --record: webcam and game as videos (recorder.py)
         self.song_deadline = None                      # --record: time (perf_counter) the song must stop
+        self.results_since = None                      # time (perf_counter) the results screen appeared
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
@@ -116,6 +117,7 @@ class Game:
         self.state_name = name
         self.state = self.states[name]
         self.state.enter(self)
+        self.results_since = time.perf_counter() if name == "results" else None
         if name == "playing" and self.recorder is not None and self.song.has_audio:
             self.recorder.song_started(self.song.audio_path)    # the music of the video starts here
 
@@ -248,6 +250,9 @@ class Game:
                 self.recorder.add(shown_frame.image, image)    # the webcam and the game, the same moment
             if self.duration is not None and time.perf_counter() - run_start >= self.duration:
                 break                                  # --duration: the measurement is long enough
+            if (self.recorder is not None and self.results_since is not None
+                    and time.perf_counter() - self.results_since >= config.RECORD_RESULTS_TIME):
+                break                                  # --record: the video ends with RECORD_RESULTS_TIME of results
 
             # Wait for the rest of this frame's time, so the game never runs faster than MAX_FPS.
             # waitKey does the waiting, so the window stays responsive (and q / ESC still work).
