@@ -7,7 +7,7 @@ Run:  python main.py                 (webcam 0)
       python main.py --windowed      (a window instead of full screen)
       python main.py --measure       (time every stage, see game_logic/measurements.py)
       python main.py --measure --duration 60   (stop after 60 seconds)
-      python main.py --record        (record the webcam and the game as videos, see game_logic/recorder.py)
+      python main.py --record        (record the webcam and the game as videos for 60 s, see game_logic/recorder.py)
 
 Play: raise both hands above your head to start. q or ESC closes the game.
 """
@@ -39,6 +39,8 @@ def main():
     measure = Measurements(program_start=PROGRAM_START) if args.measure else None
     camera = Camera(args.video if args.video else args.camera)
     recorder = Recorder() if args.record else None
+    if args.record and args.duration is None:
+        args.duration = 60.0                           # the demo video may be at most 60 s
     Game(camera, debug=args.debug, fullscreen=not args.windowed, measure=measure, duration=args.duration,
          recorder=recorder).run()
 

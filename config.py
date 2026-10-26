@@ -8,11 +8,11 @@ YOLO_MODEL_PATH = ROOT / "yolo26n-pose.pt"
 MAX_FPS = 25             # the game never runs faster than this: less work and heat for the laptop
 USE_OPENVINO = True      # run YOLO with OpenVINO: about 2x faster on the CPU, same model (see pose_processing.py)
 
-HOLD_TIME = 1.0          # seconds to hold "hands up" (song selection, registration, results)
-BROWSE_HOLD_TIME = 0.5   # song selection: seconds to hold one hand up to go to the previous / next song
+HOLD_TIME = 0.5          # seconds to hold "hands up" (song selection, registration, results); short for the 60 s demo
+BROWSE_HOLD_TIME = 0.3   # song selection: seconds to hold one hand up to go to the previous / next song
 PREVIEW_START = 0.3      # song selection: the music preview starts at this part of the song (0.3 = 30%)
 LOST_TIME = 0.5          # seconds not visible before a player is "lost"
-COUNTDOWN_TIME = 3.0
+COUNTDOWN_TIME = 2.0     # seconds of "3, 2, 1" before the song (short for the 60 s demo)
 RESULTS_MIN_TIME = 3.0   # gestures do not work before this
 RESULTS_MAX_TIME = 20.0  # back to registration after this
 GRADE_GRACE = 0.3        # extra seconds to hit a pose after the move ends
@@ -38,7 +38,7 @@ DUET_MIN_SCORE = 50 #BOTH PLAYERS 50 points out of 100 for bonus to count
 DUET_BONUS = 0.25 #%
 DUET_BONUS_TIME = 1.5   # seconds the duet bonus popup stays on screen
 STAR_BONUS = 100        # points for grabbing the bonus star (a Perfect move is 100)
-STAR_INTERVAL = 18.0    # seconds between two stars: the first at 18 s, the next 18 s after the last one is gone ...
+STAR_INTERVAL = 12.0    # seconds between two stars: the first at 12 s, the next 12 s after the last one is gone ...
 STAR_JITTER = 0.0       # ... plus or minus up to this much (0: always at the same time, so the demo video shows 2 stars)
 STAR_TIME = 5.0         # seconds a star floats across the screen
 STAR_END_FREE = 3.0     # no star in the last seconds of the song
@@ -52,7 +52,7 @@ FLOW_CHECK = True       # also check with the motion signal that the player move
 FLOW_MIN = 0.5          # direction match (cosine, -1..1) needed to keep the chain going
 MOTION_SMOOTHING = 0.5  # smoothing of the motion per player (as in Task 2)
 CHAIN_TIME = 1.0        # seconds "Chain x3" stays above the player
-SONG_MAX_TIME = 55.0    # every song stops after this many seconds (the demo video is at most 60 s); None: full songs
+SONG_MAX_TIME = 40.0    # every song stops after this many seconds (fits the 60 s demo video); None: full songs
 SONG_FADE_TIME = 1.0    # seconds the music fades out before it stops at SONG_MAX_TIME
-DEBUG_SHOW_AT = 25.0    # seconds into the song: the debug drawings turn on by themselves (for the demo video) ...
+DEBUG_SHOW_AT = 3.0     # seconds into the song: the debug drawings turn on by themselves (for the demo video) ...
 DEBUG_SHOW_FOR = 5.0    # ... for this many seconds. DEBUG_SHOW_AT = None: never (only with --debug)

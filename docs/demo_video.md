@@ -4,7 +4,8 @@
 python main.py --record
 ```
 
-(or `dist/JustDance/JustDance --record`). Play as normal; close the game with q or ESC. Then the game makes
+(or `dist/JustDance/JustDance --record`). Play as normal; the game stops by itself after 60 s (or close it
+with q or ESC). Then the game makes
 three videos in `recordings/<date_time>/` (next to the program for the executable), all H.264 MP4:
 
 | File | What |
@@ -17,27 +18,35 @@ The video plays at real speed and the music is in sync. Recording does not make 
 (measured: still 25 FPS). The song-selection previews are not in the sound. It needs `ffmpeg` (installed on
 Ubuntu with `sudo apt install ffmpeg`); without it the raw videos (`.avi`) stay in the folder.
 
-## What the 55 seconds of Rasputin show
+## What the 40 seconds of Rasputin show
 
-Every song stops after 55 s (`SONG_MAX_TIME` in `config.py`, the music fades out in the last second), so the
-video fits in 60 s. Rasputin is made so that its first 55 s show everything:
+`--record` stops by itself after **60 s** (or give `--duration`). Every song stops after **40 s**
+(`SONG_MAX_TIME` in `config.py`, the music fades out in the last second), and the steps before the song are
+short (hold the hands up 0.5 s, a 2 s countdown), so the whole demo fits in 60 s:
+
+| Part of the video | About |
+|---|---|
+| song selection (Rasputin is selected first: raise both hands 0.5 s) | 3-5 s |
+| registration (both players raise both hands 0.5 s) | 3-5 s |
+| countdown | 2 s |
+| the song | 40 s |
+| results | the rest |
+
+Rasputin is made so that its first 40 s show everything:
 
 | Time in the song | What happens | Task |
 |---|---|---|
-| 0 - 11 s | normal moves, a duet (5 s) and a gold move (7.6 s) | T2, T4 |
-| 11 s | animated move **Conductor**: follow the moving figure, chain bonus | T2 (motion), T4 |
-| 18 s | **bonus star 1**: the first hand that touches it gets +100 | T4 |
-| 23 s | animated move **Kazachok** | T2, T4 |
-| 25 - 30 s | the **debug drawings** turn on by themselves: skeletons, boxes, FPS (`DEBUG_SHOW_AT`) | T2, T3 |
-| 34 s | animated move **Wave** | T2, T4 |
-| about 36 - 41 s | **bonus star 2** (18 s after star 1 is gone) | T4 |
-| 45 s | animated move **Disco** | T2, T4 |
-| 55 s | the song stops: the results (ranking, winner) | T4, T5 |
+| 3 - 8 s | the **debug drawings** turn on by themselves: skeletons, boxes, FPS (`DEBUG_SHOW_AT`), during a duet, a gold move and the start of the Conductor | T2, T3 |
+| 7.6 s | animated move **Conductor**: follow the moving figure, chain bonus | T2 (motion), T4 |
+| 12 s | **bonus star 1**: the first hand that touches it gets +100 | T4 |
+| 18.9 s | animated move **Kazachok** | T2, T4 |
+| 25 - 29 s | **bonus star 2** (12 s after star 1 is gone) | T4 |
+| 34.0 s | animated move **Wave** | T2, T4 |
+| 37.8 s | animated move **Disco** | T2, T4 |
+| 40 s | the song stops: the results (scores, winner) | T4, T5 |
 
-All the time: big heads, crown and player labels (T1), identity colours and the score bar (T3), the stage
-instead of the room (T5).
+In between: normal moves, 4 gold moves and 5 duets. All the time: big heads, crown and player labels (T1),
+identity colours and the score bar (T3), the stage instead of the room (T5).
 
-**Watch the total time:** the song selection, registration and the 3 s countdown also take time. With 55 s of
-song there are only 5 s left for them in a 60 s video. Either be quick (choose the song and register within a
-few seconds), or start the recording just before the song and show the registration some other way, or lower
-`SONG_MAX_TIME` (for example to 45).
+For the full songs again (not for the demo): `SONG_MAX_TIME = None`, `DEBUG_SHOW_AT = None`, and if you like
+`HOLD_TIME = 1.0`, `COUNTDOWN_TIME = 3.0` and a random star (`STAR_INTERVAL = 20.0`, `STAR_JITTER = 5.0`).
