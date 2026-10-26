@@ -26,6 +26,7 @@ from pose_tracking.pose_processing import PoseEstimator
 from scene.functions import player_color
 from scene.scene import Scene
 import cv2
+import numpy as np
 import config
 
 WINDOW_NAME = "Just Dance"
@@ -34,6 +35,18 @@ WINDOW_NAME = "Just Dance"
 def find_faces(image):
     """Face tracking for one image. Runs in the face thread (see Game.step)."""
     return smooth_face_properties(get_face_properties(image))
+
+
+def warm_up_models(pose_estimator, segmenter=None):
+    """Prepare the YOLO models one after the other, before they run in their own threads.
+
+    OpenVINO prepares (compiles) a model the first time it is used. When the pose model and the
+    segmentation model do that at the same moment in two threads, the program can hang (seen in a test:
+    all threads waiting for each other). After this, both are ready, and the first frame is not slow."""
+    blank = np.zeros((config.GAME_SIZE[1], config.GAME_SIZE[0], 3), np.uint8)
+    pose_estimator.model.predict(blank, verbose=False)
+    if segmenter is not None:
+        segmenter.find_people(blank)
 
 
 def crown_holder(players):
@@ -77,6 +90,7 @@ class Game:
         # the Just Dance stage instead of the room: person segmentation in its own thread, like the faces
         self.segmenter = PersonSegmenter() if config.BACKGROUND else None
         self.segment_thread = ThreadPoolExecutor(max_workers=1) if config.BACKGROUND else None
+        warm_up_models(self.pose_estimator, self.segmenter)   # one after the other, see there
         self.stage = Stage()
         self.masker = PlayerMasker()                           # which people stay on the stage
         self.skip_state = False                                # debug key n: next state, done in step()

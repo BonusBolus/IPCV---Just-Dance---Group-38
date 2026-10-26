@@ -101,6 +101,7 @@ game_logic/
         results.py            #   ResultsState
     song.py                   # NEW: reads the song file, audio, song clock, current + next move
     bonus_star.py             # NEW: the bonus star: when it comes, where it floats, who grabs it
+    motion.py                 # NEW: motion per player and the direction check of animated moves
     pose_grading.py           # same grading (for now), only the Pencil pose added
 scene/                        # one file per part of the screen (docs/scene_changes.md)
     scene.py                  #   the original Scene class (title, score bar) + draw_ratings()
@@ -257,6 +258,9 @@ The frame-by-frame recording `choreography.json` (from branch `test-structure`) 
 | `beat` | The beat where the player must **be in** the pose. The move becomes active here. |
 | `pose` | Name of a pose in `poses.json` |
 | `beats` | How long the player must hold the pose. Default: 2. |
+| `poses` | Instead of `pose`: a list of poses, an **animated move** (see `docs/animated_moves.md`). Every pose is one step. |
+| `name` | The name of an animated move on screen, for example "Kazachok". |
+| `step_beats` | Music beats per step of an animated move. Default: 1. |
 | `gold` | Optional. `true` = double points. |
 
 Beat to seconds: `seconds = offset + beat * 60 / bpm` (with `move_bpm` instead of `bpm` when the song has it).

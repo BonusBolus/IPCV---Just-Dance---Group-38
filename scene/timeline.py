@@ -10,7 +10,7 @@ at the right end of the track, so it is visible from the countdown on.
 """
 import cv2
 
-from scene.functions import DUET, GOLD, GREEN, GREY, WHITE
+from scene.functions import DUET, FLOW, GOLD, GREEN, GREY, WHITE
 from scene.move_cards import draw_duet_poses
 from scene.pose_figure import draw_pose
 
@@ -33,6 +33,9 @@ def visible_moves(moves, t, lookahead=LOOKAHEAD):
 
 
 def move_color(move):
+    """Animated moves magenta (every step a pictogram: a film strip of the movement), duets cyan, gold gold."""
+    if getattr(move, "group", None) is not None:
+        return FLOW
     return DUET if move.players == 2 else GOLD if move.gold else GREEN
 
 

@@ -45,3 +45,10 @@ STAR_END_FREE = 3.0     # no star in the last seconds of the song
 STAR_SIZE = 0.05        # star radius, as part of the image height (36 px at 720p)
 STAR_REACH = 0.08       # a wrist this close to the star (part of the image height, 58 px at 720p) grabs it
 STAR_BURST_TIME = 0.9   # seconds the "+100" stays after a grab
+# animated moves (a list of poses in the song file, see song.animated_move)
+CHAIN_MIN_SCORE = 65    # a step with at least this score (Good) keeps the chain going
+CHAIN_BONUS = 20        # extra points per step in a chain: the 2nd correct step in a row +20, the 3rd +40, ...
+FLOW_CHECK = True       # also check with the motion signal that the player moves the right way between steps
+FLOW_MIN = 0.5          # direction match (cosine, -1..1) needed to keep the chain going
+MOTION_SMOOTHING = 0.5  # smoothing of the motion per player (as in Task 2)
+CHAIN_TIME = 1.0        # seconds "Chain x3" stays above the player
