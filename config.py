@@ -52,3 +52,5 @@ FLOW_CHECK = True       # also check with the motion signal that the player move
 FLOW_MIN = 0.5          # direction match (cosine, -1..1) needed to keep the chain going
 MOTION_SMOOTHING = 0.5  # smoothing of the motion per player (as in Task 2)
 CHAIN_TIME = 1.0        # seconds "Chain x3" stays above the player
+DEBUG_SHOW_AT = 25.0    # seconds into the song: the debug drawings turn on by themselves (for the demo video) ...
+DEBUG_SHOW_FOR = 5.0    # ... for this many seconds. DEBUG_SHOW_AT = None: never (only with --debug)

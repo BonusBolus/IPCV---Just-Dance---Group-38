@@ -69,6 +69,7 @@ class Game:
     def __init__(self, camera, debug=False, fullscreen=True, measure=None, duration=None):
         self.camera = camera
         self.debug = debug
+        self.show_debug = debug                        # debug drawings this frame: --debug, or see debug_shown()
         self.fullscreen = fullscreen
         self.measure = measure or NoMeasurements()    # --measure: times of every stage (measurements.py)
         self.duration = duration                       # --duration: stop after this many seconds
@@ -179,7 +180,8 @@ class Game:
                     add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
         with m.stage("t5_render"):
             self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
-        if self.debug:
+        self.show_debug = self.debug or self.debug_shown()
+        if self.show_debug:
             draw_labels(image, self.players)
             self.scene.draw_player(image, self.players)
             t = self.song.time()
@@ -189,11 +191,19 @@ class Game:
 
         with m.stage("t5_render"):
             image = self.state.draw(self, image)
-        if self.debug:
+        if self.show_debug:
             cv2.putText(image, f"FPS: {self.fps.fps:.1f}  state: {self.state_name}  (n = next state)",
                         (10, image.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
         m.add("step", (time.perf_counter() - step_start) * 1000)
         return image
+
+    def debug_shown(self):
+        """True from DEBUG_SHOW_AT to DEBUG_SHOW_AT + DEBUG_SHOW_FOR seconds into the song (state Playing):
+        then the debug drawings (skeletons, boxes, target pose, FPS) show by themselves for a moment, so the
+        demo video shows the tracking. The n key (next state) still only works with --debug."""
+        if config.DEBUG_SHOW_AT is None or self.state_name != "playing":
+            return False
+        return config.DEBUG_SHOW_AT <= self.song.time() < config.DEBUG_SHOW_AT + config.DEBUG_SHOW_FOR
 
     def run(self):
         # A window without the toolbar and status bar: showing an image is about 2.5 ms faster.

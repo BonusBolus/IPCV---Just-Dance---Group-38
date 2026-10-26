@@ -231,7 +231,7 @@ class PlayingState(State):
 
         if t < 1.0:
             image = draw_big_text(image, "Dance!")
-        if game.debug:
+        if getattr(game, "show_debug", game.debug):          # --debug, or the moment of Game.debug_shown()
             lines = []
             for i in PLAYER_IDS:
                 live_str = '-' if self.live[i] is None else f'{self.live[i]:.0f}'
