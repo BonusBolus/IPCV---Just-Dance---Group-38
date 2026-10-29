@@ -1,0 +1,7 @@
+kind,start,swap,end,event_start,event_end,evaluated,correct,switches,recovered,recovery_time,success,note
+crossing,44.162,True,56.641,46.133,55.873,114,114,0,True,0.0,True,
+crossing,63.361,True,69.297,64.193,,32,32,0,False,,,ended during the event (press e when both players stand apart)
+occlusion,75.393,False,80.785,75.425,,0,0,0,False,,,ended during the event (press e when both players stand apart)
+re-entry,82.85,False,93.761,82.881,,0,0,0,False,,,ended during the event (press e when both players stand apart)
+re-entry,96.833,False,101.857,96.897,,0,0,0,False,,,ended during the event (press e when both players stand apart)
+re-entry,106.034,False,119.122,107.729,118.881,80,80,0,True,0.0,True,

@@ -1,0 +1,83 @@
+{
+  "condition": "bright",
+  "subjects": "A,B",
+  "distance_m": 2.5,
+  "source": "camera 0",
+  "faces": true,
+  "brightness_mean": 162.9,
+  "player_height_px_mean": 552.5,
+  "duration_s": 125.0,
+  "evaluated_person_frames": 1048,
+  "identity_accuracy_pct": 96.6,
+  "identity_switches": 2,
+  "switches_per_minute": 1.0,
+  "trials": {
+    "crossing": {
+      "trials": 2,
+      "valid_trials": 1,
+      "success_rate_pct": 100.0,
+      "recovered_pct": 100.0,
+      "switches": 0,
+      "switches_per_trial": 0.0,
+      "recovery_time_mean_s": 0.0,
+      "recovery_time_max_s": 0.0,
+      "event_time_mean_s": 9.74
+    },
+    "occlusion": {
+      "trials": 1,
+      "valid_trials": 0,
+      "success_rate_pct": null,
+      "recovered_pct": null,
+      "switches": 0,
+      "switches_per_trial": null,
+      "recovery_time_mean_s": null,
+      "recovery_time_max_s": null,
+      "event_time_mean_s": null
+    },
+    "re-entry": {
+      "trials": 3,
+      "valid_trials": 1,
+      "success_rate_pct": 100.0,
+      "recovered_pct": 100.0,
+      "switches": 0,
+      "switches_per_trial": 0.0,
+      "recovery_time_mean_s": 0.0,
+      "recovery_time_max_s": 0.0,
+      "event_time_mean_s": 11.15
+    }
+  },
+  "timing_ms": {
+    "pose_ms": {
+      "mean": 23.96,
+      "median": 23.94,
+      "p95": 25.32,
+      "max": 30.5
+    },
+    "tracking_ms": {
+      "mean": 1.18,
+      "median": 1.23,
+      "p95": 1.92,
+      "max": 11.68
+    },
+    "faces_ms": {
+      "mean": 10.09,
+      "median": 10.02,
+      "p95": 10.66,
+      "max": 11.81
+    },
+    "processing_ms": {
+      "mean": 35.23,
+      "median": 35.22,
+      "p95": 36.87,
+      "max": 46.53
+    },
+    "latency_ms": {
+      "mean": 57.66,
+      "median": 57.58,
+      "p95": 72.83,
+      "max": 89.52
+    }
+  },
+  "fps_mean": 21.3,
+  "spatial_error_mm": "not measured (positions are only in pixels)"
+}

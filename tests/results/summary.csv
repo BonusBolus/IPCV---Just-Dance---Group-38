@@ -1,0 +1,2 @@
+folder,condition,subjects,distance_m,brightness,player_height_px,duration_s,accuracy_pct,switches,switches_per_min,fps,processing_ms,tracking_ms,latency_ms,crossing_trials,crossing_success_pct,crossing_recovery_s,occlusion_trials,occlusion_success_pct,occlusion_recovery_s,re-entry_trials,re-entry_success_pct,re-entry_recovery_s
+2026-10-26_10-05-36_bright,bright,"A,B",2.5,162.9,552.5,125.0,96.6,2,1.0,21.3,35.23,1.18,57.66,1,100.0,0.0,0,,,1,100.0,0.0

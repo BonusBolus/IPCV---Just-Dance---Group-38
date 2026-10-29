@@ -233,3 +233,6 @@ yolo26n-seg.pt
 
 # environment for building the executable (README, "Make an executable")
 build-env/
+
+# evaluation recordings (videos of people, large): keep them out of git, the results (.csv/.json) can go in
+tests/results/**/*.mp4

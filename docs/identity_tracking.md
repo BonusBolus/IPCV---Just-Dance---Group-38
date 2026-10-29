@@ -82,12 +82,32 @@ the pose estimation in [pose_tracking/pose_processing.py](../pose_tracking/pose_
 
 ## 6. How to evaluate it (needed for the report)
 
-- **Identity switches:** walk past each other 10 times, and count how often the labels swap.
-- **Re-entry:** leave the frame and come back 10 times, and count how often you get your old
-  label back.
-- **Lighting / clothing:** repeat with similar shirts, and in darker light, and report when it
-  fails.
-- **Speed:** time `update()` with `time.perf_counter()`. It should take well below 1 ms per
-  frame; the pose estimation costs more.
-- Record the test once (e.g. with your phone or OpenCV's `VideoWriter`) and replay it with
-  `python main.py --video test.mp4`, so every version is tested on the same footage.
+Use [tests/eval_identity.py](../tests/eval_identity.py). It runs the pose estimation and the tracker of the game,
+shows the measurements on screen (FPS, time per part, latency, accuracy, switches) and writes them to
+`tests/results/<date>_<condition>/` (`frames.csv`, `trials.csv`, `summary.json`). Every run also adds one line
+to `tests/results/summary.csv`, so different conditions end up in one table.
+
+```
+python tests/eval_identity.py --condition bright --subjects "A,B" --distance 2.5 --record tests/results/bright.mp4
+python tests/eval_identity.py --video tests/results/bright.mp4 --condition bright   # the same test again
+```
+
+**Protocol.** Two players, different shirts, stand apart (the first frame with both players sets who is who:
+check the OK labels, else press `k`). For each trial press the key, do the action, and press `e` when both stand
+apart again:
+
+| Key | Trial | What the players do |
+|---|---|---|
+| `c` | crossing | walk past each other and end on the other side (10x) |
+| `o` | occlusion | one player stands half behind the other or an object for about 2 s (10x) |
+| `r` | re-entry | one player walks out of the image and comes back on the same side (10x; other side: also press `s`) |
+
+Repeat the runs for the impact factors: **lighting** (`--condition bright` / `dim`, the script also measures the
+brightness), **distance** (`--distance` in metres; the player height in pixels is measured too), and **subjects**
+(other pairs, similar shirts).
+
+**What it measures.** Identity accuracy (% of the evaluated person-frames with the correct player), ID switches
+(per trial and per minute), success rate (% of trials with both IDs correct at the end), recovery (% recovered and
+the time from the end of the event until both IDs are correct), and the speed (pose, tracking and face time in ms,
+FPS, latency from camera image to result). Only frames with exactly two people that do not overlap are evaluated:
+then their side tells who is who. Spatial error in mm is not measured, because the game has no physical positions.
