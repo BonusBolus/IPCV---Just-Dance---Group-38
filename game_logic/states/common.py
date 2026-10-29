@@ -11,6 +11,7 @@ A state decides WHAT happens; the files in scene/ decide HOW it looks.
 """
 
 import config
+from game_logic.measurements import NoMeasurements
 from scene import move_cards, timeline
 from scene.functions import player_color
 
@@ -88,6 +89,12 @@ def raised_hands(player):
     if len(up) == 1:
         return "left" if up[0][0] < nose[0] else "right"
     return None
+
+
+def measure(game):
+    """The game's measurements (Measurements with --measure, else NoMeasurements, which does nothing).
+    Fake games in the tests have none: then also nothing."""
+    return getattr(game, "measure", None) or NoMeasurements()
 
 
 class HoldGesture:

@@ -10,7 +10,7 @@ import numpy as np
 import config
 from game_logic.bonus_star import BonusStar
 from game_logic.motion import PlayerMotion, flow
-from game_logic.states.common import PLAYER_IDS, State, draw_move_cards
+from game_logic.states.common import PLAYER_IDS, State, draw_move_cards, measure
 from identity_tracking.identity import KEYPOINT_NAMES
 from scene.functions import FLOW, GREEN, draw_banner, draw_big_text, draw_duet_bonus, draw_text, player_color
 from scene.star import draw_star, draw_star_burst
@@ -61,6 +61,8 @@ class PlayingState(State):
         self.flows = {i: None for i in PLAYER_IDS}       # direction match of the last step (debug)
         self.chains_shown = {}                           # player id -> (chain length, time), for "Chain x3"
         self.fading = False                              # the music is fading out (SONG_MAX_TIME)
+        self.star_shown = None                           # song time of the star that is on screen (events)
+        self.was_lost = {i: False for i in PLAYER_IDS}   # for the "lost" / "back" events
 
     def update(self, game):
         t = game.song.time()
@@ -77,6 +79,12 @@ class PlayingState(State):
         grabbed_by = self.star.update(t, game.players.values(), self.image_size, game.song.play_length)
         if grabbed_by is not None:
             game.players[grabbed_by]["score"] += config.STAR_BONUS
+        self._star_events(game, t, grabbed_by)
+        for i in PLAYER_IDS:
+            lost = self.is_lost(game, i)
+            if lost != self.was_lost[i]:
+                measure(game).event("player_lost" if lost else "player_back", player=i)
+                self.was_lost[i] = lost
 
         move = game.song.grading_move(t)
         if move is not self.move:
@@ -153,8 +161,13 @@ class PlayingState(State):
             game.players[i]["score"] += points
             game.players[i]["last_move_points"] = points
             self.ratings[i] = (rating(score), game.now)
+            kind = ("step" if getattr(self.move, "group", None) is not None else "duet" if self.move.players == 2
+                    else "gold" if self.move.gold else "normal")
+            measure(game).event("move", player=i, pose=self.move.key, kind=kind, score=round(score, 1),
+                               rating=rating(score), points=points, seen=bool(self.frame_scores[i]))
         if bonus_awarded:
             self.duet_bonus_since = game.now
+            measure(game).event("duet_bonus", pose=self.move.key)
         self.move = None
         self.frame_scores = {i: [] for i in PLAYER_IDS}
         self.interacted = False
@@ -182,6 +195,8 @@ class PlayingState(State):
             self.flows[player_id] = self.step_flow(player_id, move)
             if self.flows[player_id] is not None and self.flows[player_id] < config.FLOW_MIN:
                 correct = False                          # the right pose, but not the right movement
+        measure(game).event("chain_step", player=player_id, step=move.step + 1, correct=correct,
+                           flow=None if self.flows[player_id] is None or move.step == 0 else round(self.flows[player_id], 3))
         if not correct:
             self.chain[player_id] = 0
             return 0
@@ -189,6 +204,18 @@ class PlayingState(State):
         if self.chain[player_id] >= 2:
             self.chains_shown[player_id] = (self.chain[player_id], game.now)
         return config.CHAIN_BONUS * (self.chain[player_id] - 1)
+
+    def _star_events(self, game, t, grabbed_by):
+        """Events for the Task 4 evaluation: a star appears, is grabbed (by whom, how fast) or missed."""
+        if self.star.start is not None and self.star_shown != self.star.start:
+            self.star_shown = self.star.start
+            measure(game).event("star_appear")
+        if grabbed_by is not None:
+            measure(game).event("star_grab", player=grabbed_by, after=round(t - self.star_shown, 3))
+            self.star_shown = None
+        elif self.star.start is None and self.star_shown is not None:
+            measure(game).event("star_missed")
+            self.star_shown = None
 
     def draw_chains(self, game, image):
         """ "Chain x3" above a player who did several steps of an animated move right in a row."""

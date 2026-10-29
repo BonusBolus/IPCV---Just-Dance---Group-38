@@ -5,7 +5,7 @@ Both hands up for HOLD_TIME = choose this song, then the players register.
 The selected song plays a music preview. Anyone in front of the camera can choose.
 """
 import config
-from game_logic.states.common import HoldGesture, State, raised_hands
+from game_logic.states.common import HoldGesture, State, raised_hands, measure
 from scene.song_select_screen import draw_song_select
 
 
@@ -21,6 +21,7 @@ class SongSelectState(State):
         hands = {raised_hands(player) for player in game.players.values() if player["visible"]} - {None}
 
         if self.choose.update("both" in hands, game.now):
+            measure(game).event("choose_song", hold=round(game.now - self.choose.started, 3), song=game.song.title)
             return "registration"
 
         if not hands:
@@ -28,6 +29,7 @@ class SongSelectState(State):
         for side, step in (("left", -1), ("right", 1)):
             active = side in hands and "both" not in hands and not self.wait_for_hands_down
             if self.browse[side].update(active, game.now):
+                measure(game).event(f"browse_{side}", hold=round(game.now - self.browse[side].started, 3))
                 self.select(game, (game.song_index + step) % len(game.songs))
                 self.wait_for_hands_down = True
                 self.browse[side].update(False, game.now)     # the bar starts at 0 again

@@ -72,6 +72,42 @@ class MeasurementsTests(unittest.TestCase):
         m.add("t1_faces", 3.0)
         m.finish()
 
+    def test_events_are_counted_per_player(self):
+        with tempfile.TemporaryDirectory() as folder:
+            m = Measurements(folder)
+            m.event("ready", player=1, hold=0.52)
+            m.event("ready", player=2, hold=0.56)
+            m.event("move", player=1, rating="Perfect")
+            m.event("move", player=2, rating="Miss")
+            m.event("star_grab", player=2, after=1.5)
+            text = "\n".join(m.events_summary())
+        self.assertIn("| ready | 2 | P1: 1, P2: 1 | held 0.54 s on average (min 0.52, max 0.56) |", text)
+        self.assertIn("| move | 2 | P1: 1, P2: 1 | Perfect 1, Miss 1 |", text)
+        self.assertIn("| star_grab | 1 | P2: 1 | after 1.50 s on average |", text)
+
+    def test_a_recognised_gesture_is_an_event(self):
+        import config
+        from game_logic.states.song_select import SongSelectState
+        from identity_tracking.identity import new_player_entry
+        from unittest.mock import Mock, patch
+        with tempfile.TemporaryDirectory() as folder:
+            m = Measurements(folder)
+            player = new_player_entry(1)
+            player["visible"] = True
+            game = SimpleNamespace(measure=m, players={1: player}, now=0.0, song=Mock(title="Rasputin"),
+                                   songs=[Mock()], song_index=0)
+            state = SongSelectState()
+            state.enter(game)
+            with patch("game_logic.states.song_select.raised_hands", return_value="both"):
+                result = None
+                while result is None:
+                    game.now += 0.04
+                    result = state.update(game)
+        self.assertEqual(result, "registration")
+        event = m.events[-1]
+        self.assertEqual((event["event"], event["song"]), ("choose_song", "Rasputin"))
+        self.assertAlmostEqual(event["hold"], config.HOLD_TIME, delta=0.05)
+
     def test_timed(self):
         result, ms = timed(lambda x: x * 2, 21)
         self.assertEqual(result, 42)

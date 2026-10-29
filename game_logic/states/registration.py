@@ -1,6 +1,6 @@
 """Registration: the game starts here. The tracker finds 2 players, and both raise their hands when ready."""
 import config
-from game_logic.states.common import BODY_PART_WORDS, body_visible_down_to, lowest_needed_part, hands_up, HoldGesture, PLAYER_IDS, State
+from game_logic.states.common import BODY_PART_WORDS, body_visible_down_to, lowest_needed_part, hands_up, HoldGesture, PLAYER_IDS, State, measure
 from scene.registration_screen import draw_registration
 
 
@@ -19,6 +19,8 @@ class RegistrationState(State):
                 self.last_seen[i] = game.now
                 if not self.ready[i]:
                     self.ready[i] = self.gestures[i].update(hands_up(player), game.now)
+                    if self.ready[i]:
+                        measure(game).event("ready", player=i, hold=round(game.now - self.gestures[i].started, 3))
             elif game.now - self.last_seen[i] > config.LOST_TIME:
                 # gone for a while (not just one missed frame): ready again from the start
                 self.ready[i] = False

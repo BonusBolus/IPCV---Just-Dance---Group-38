@@ -83,6 +83,7 @@ class Measurements:
         self.frames = {}                # frame index -> row (dict)
         self.shown = []                 # rows of the frames that were shown, in order
         self.resources = []
+        self.events = []                # event() rows
         self.last_shown = None
         self.last_sample = 0.0
         try:
@@ -115,6 +116,11 @@ class Measurements:
 
     def count(self, name, value):
         self.current[name] = value
+
+    def event(self, name, **fields):
+        """A recognised action or game event (for the Task 4 evaluation), with the time since the program
+        started. fields: for example player=1, hold=0.53 (seconds the gesture was held), rating="Good"."""
+        self.events.append({"time": round(time.perf_counter() - self.program_start, 3), "event": name, **fields})
 
     def frame_shown(self, index, display_ms):
         """Called by the main loop right after the image of frame `index` was given to the window."""
@@ -166,6 +172,12 @@ class Measurements:
                 writer = csv.DictWriter(f, fieldnames=list(self.resources[0]))
                 writer.writeheader()
                 writer.writerows(self.resources)
+        if self.events:
+            columns = list(dict.fromkeys(key for row in self.events for key in row))
+            with open(self.folder / "events.csv", "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=columns)
+                writer.writeheader()
+                writer.writerows(self.events)
         summary = self.summary(note)
         (self.folder / "summary.md").write_text(summary)
         (self.folder / "table.tex").write_text(self.latex_table())
@@ -228,10 +240,46 @@ class Measurements:
             v = self.values(stage, rows)
             if len(v):
                 lines.append(f"| {stage} | {v.mean():.1f} | {np.median(v):.1f} | {np.percentile(v, 95):.1f} | {v.max():.1f} |")
+        lines += self.events_summary()
         lines += ["", "t1_faces and segmentation run at the same time as t2_pose: the stages do not add up to frame_time.",
                   "latency starts when the camera image arrives in the program; the camera itself and the screen add "
                   "some more (not measured here).", ""]
         return "\n".join(lines)
+
+    def events_summary(self):
+        """The recognised actions and game events (Task 4): how many, by whom, how long a gesture took."""
+        if not self.events:
+            return []
+        lines = ["", "## Actions and events (events.csv)", "", "| event | count | per player | details |", "|---|---|---|---|"]
+        names = list(dict.fromkeys(row["event"] for row in self.events))
+        for name in names:
+            rows = [row for row in self.events if row["event"] == name]
+            per_player = {}
+            for row in rows:
+                if row.get("player") is not None:
+                    per_player[row["player"]] = per_player.get(row["player"], 0) + 1
+            details = []
+            holds = [row["hold"] for row in rows if row.get("hold") is not None]
+            if holds:
+                details.append(f"held {np.mean(holds):.2f} s on average (min {min(holds):.2f}, max {max(holds):.2f})")
+            ratings = [row["rating"] for row in rows if row.get("rating")]
+            if ratings:
+                details.append(", ".join(f"{r} {ratings.count(r)}" for r in ("Perfect", "Good", "OK", "Miss") if r in ratings))
+            delays = [row["after"] for row in rows if row.get("after") is not None]
+            if delays:
+                details.append(f"after {np.mean(delays):.2f} s on average")
+            flows = [row["flow"] for row in rows if row.get("flow") not in (None, "")]
+            if flows:
+                details.append(f"direction match {np.mean(flows):+.2f} on average")
+            correct = [row["correct"] for row in rows if row.get("correct") is not None]
+            if correct:
+                details.append(f"{100 * np.mean(correct):.0f}% correct")
+            players = ", ".join(f"P{p}: {n}" for p, n in sorted(per_player.items()))
+            lines.append(f"| {name} | {len(rows)} | {players or '-'} | {'; '.join(details) or '-'} |")
+        lines.append("")
+        lines.append("hold = from the first frame of the gesture to the frame it was recognised; the screen shows it "
+                     "about one latency (see above) later.")
+        return lines
 
     def latex_table(self):
         rows = self.playing_rows()
