@@ -13,6 +13,7 @@ from face_tracking.head_filter import enlarge_heads
 from background.segmentation import PersonSegmenter, PlayerMasker
 from background.stage import Stage
 from face_tracking.game_effects import add_crown, add_player_label, faces_for_players
+from game_logic.measurements import NoMeasurements, timed
 from game_logic.pose_grading import PoseGrader
 from game_logic.song import find_songs
 from game_logic.states.countdown import CountdownState
@@ -25,6 +26,7 @@ from pose_tracking.pose_processing import PoseEstimator
 from scene.functions import player_color
 from scene.scene import Scene
 import cv2
+import numpy as np
 import config
 
 WINDOW_NAME = "Just Dance"
@@ -33,6 +35,18 @@ WINDOW_NAME = "Just Dance"
 def find_faces(image):
     """Face tracking for one image. Runs in the face thread (see Game.step)."""
     return smooth_face_properties(get_face_properties(image))
+
+
+def warm_up_models(pose_estimator, segmenter=None):
+    """Prepare the YOLO models one after the other, before they run in their own threads.
+
+    OpenVINO prepares (compiles) a model the first time it is used. When the pose model and the
+    segmentation model do that at the same moment in two threads, the program can hang (seen in a test:
+    all threads waiting for each other). After this, both are ready, and the first frame is not slow."""
+    blank = np.zeros((config.GAME_SIZE[1], config.GAME_SIZE[0], 3), np.uint8)
+    pose_estimator.model.predict(blank, verbose=False)
+    if segmenter is not None:
+        segmenter.find_people(blank)
 
 
 def crown_holder(players):
@@ -52,10 +66,16 @@ NEXT_STATE = {"song_select": "registration", "registration": "countdown", "count
 
 
 class Game:
-    def __init__(self, camera, debug=False, fullscreen=True):
+    def __init__(self, camera, debug=False, fullscreen=True, measure=None, duration=None, recorder=None):
         self.camera = camera
         self.debug = debug
+        self.show_debug = debug                        # debug drawings this frame: --debug, or see debug_shown()
         self.fullscreen = fullscreen
+        self.measure = measure or NoMeasurements()    # --measure: times of every stage (measurements.py)
+        self.duration = duration                       # --duration: stop after this many seconds
+        self.recorder = recorder                       # --record: webcam and game as videos (recorder.py)
+        self.song_deadline = None                      # --record: time (perf_counter) the song must stop
+        self.results_since = None                      # time (perf_counter) the results screen appeared
         self.pose_estimator = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
         self.tracker = IdentityTracker(max_players=2)
         self.pose_grader = PoseGrader()
@@ -74,6 +94,7 @@ class Game:
         # the Just Dance stage instead of the room: person segmentation in its own thread, like the faces
         self.segmenter = PersonSegmenter() if config.BACKGROUND else None
         self.segment_thread = ThreadPoolExecutor(max_workers=1) if config.BACKGROUND else None
+        warm_up_models(self.pose_estimator, self.segmenter)   # one after the other, see there
         self.stage = Stage()
         self.masker = PlayerMasker()                           # which people stay on the stage
         self.skip_state = False                                # debug key n: next state, done in step()
@@ -96,6 +117,9 @@ class Game:
         self.state_name = name
         self.state = self.states[name]
         self.state.enter(self)
+        self.results_since = time.perf_counter() if name == "results" else None
+        if name == "playing" and self.recorder is not None and self.song.has_audio:
+            self.recorder.song_started(self.song.audio_path)    # the music of the video starts here
 
     def step(self, frame):
         """Everything that happens with one camera frame. Returns the image to show."""
@@ -106,51 +130,87 @@ class Game:
         if self.state is None:
             self.change_state("song_select")
 
-        faces_future = self.face_thread.submit(find_faces, frame.image)    # starts now, in the second thread
-        people_future = self.segment_thread.submit(self.segmenter.find_people, frame.image) if self.segmenter else None
-        keypoints, _ = self.pose_estimator.process(frame.image)
-        self.players = self.tracker.update(frame.image, people_from_pose(keypoints, min_confidence=0.1))
+        m = self.measure
+        m.start_frame(frame, self.state_name)
+        step_start = time.perf_counter()
+        # face detection and segmentation start now, in their own threads (timed() also gives their time)
+        faces_future = self.face_thread.submit(timed, find_faces, frame.image)
+        people_future = (self.segment_thread.submit(timed, self.segmenter.find_people, frame.image)
+                         if self.segmenter else None)
+        with m.stage("t2_pose"):
+            keypoints, _ = self.pose_estimator.process(frame.image)
+        with m.stage("t3_identity"):
+            self.players = self.tracker.update(frame.image, people_from_pose(keypoints, min_confidence=0.1))
 
-        next_state = self.state.update(self)
-        if next_state:
-            self.change_state(next_state)
+        with m.stage("t4_logic"):
+            next_state = self.state.update(self)
+            if next_state:
+                self.change_state(next_state)
 
         image = frame.image.copy()
-        faces = faces_future.result()                  # wait for the face thread (usually done already)
-        # Only faces that belong to a player get effects: no crowns on bystanders or false detections
-        self.heads = faces_for_players(self.players, faces)
+        with m.stage("wait_threads"):
+            faces, faces_ms = faces_future.result()    # wait for the face thread (usually done already)
+        m.add("t1_faces", faces_ms)
+        with m.stage("t3_identity"):
+            # Only faces that belong to a player get effects: no crowns on bystanders or false detections
+            self.heads = faces_for_players(self.players, faces)
         player_faces = [face for face in self.heads.values() if face is not None]
-        # only the players stay, the room becomes the stage (mask: 1 = player, 0 = room)
-        # (other people are only removed while the players are fixed, see PlayerMasker)
-        players_fixed = self.state_name in ("countdown", "playing", "results")
-        mask = (self.masker.mask(people_future.result(), self.players.values(), image.shape, self.now, players_fixed)
-                if people_future else None)
-        # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
-        enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image),
-                      mask=mask)
-        if mask is not None:
-            self.stage.place_players(image, mask, self.now)
-        leader = crown_holder(self.players)
-        if leader is not None and self.heads[leader] is not None:
-            add_crown(image, [self.heads[leader]])
-        # The player label sits on the crown band (on the forehead when there is no crown)
-        for player_id, face in self.heads.items():
-            if face is not None:
-                add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
-        self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
-        if self.debug:
+        m.count("people", len(keypoints))
+        m.count("faces", len(faces))
+        m.count("players_visible", sum(player["visible"] for player in self.players.values()))
+        m.count("heads", len(player_faces))
+        mask = None
+        if people_future:
+            with m.stage("wait_threads"):
+                people, segment_ms = people_future.result()
+            m.add("segmentation", segment_ms)
+            with m.stage("t5_render"):
+                # only the players stay, the room becomes the stage (mask: 1 = player, 0 = room)
+                # (other people are only removed while the players are fixed, see PlayerMasker)
+                players_fixed = self.state_name in ("countdown", "playing", "results")
+                mask = self.masker.mask(people, self.players.values(), image.shape, self.now, players_fixed)
+        with m.stage("t1_effects"):
+            # the big heads come from the sharpest camera image (1080p: Frame.detail); frame.image is not drawn on
+            enlarge_heads(image, player_faces, config.HEAD_ENLARGEMENT, detail=getattr(frame, "detail", frame.image),
+                          mask=mask)
+        with m.stage("t5_render"):
+            if mask is not None:
+                self.stage.place_players(image, mask, self.now)
+        with m.stage("t1_effects"):
+            leader = crown_holder(self.players)
+            if leader is not None and self.heads[leader] is not None:
+                add_crown(image, [self.heads[leader]])
+            # The player label sits on the crown band (on the forehead when there is no crown)
+            for player_id, face in self.heads.items():
+                if face is not None:
+                    add_player_label(image, f"Player {player_id}", face, player_color(self.players[player_id]))
+        with m.stage("t5_render"):
+            self.scene.draw_edge_effects(image, list(self.players.values()), self.now)   # glow + sparkles, every state
+        self.show_debug = self.debug or self.debug_shown()
+        with m.stage("t5_render"):
+            image = self.state.draw(self, image)
+        if self.show_debug:
+            # on top of the state's screen, so they also show on the (darkened) results screen
             draw_labels(image, self.players)
             self.scene.draw_player(image, self.players)
             t = self.song.time()
             current_move = self.song.current_move(t) or self.song.grading_move(t) or self.song.next_move(t)
-            if current_move is not None:
+            if current_move is not None and self.state_name == "playing":
                 self.scene.draw_target_pose_overlay(image, self.players, current_move.pose)
-
-        image = self.state.draw(self, image)
-        if self.debug:
             cv2.putText(image, f"FPS: {self.fps.fps:.1f}  state: {self.state_name}  (n = next state)",
                         (10, image.shape[0] - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+        m.add("step", (time.perf_counter() - step_start) * 1000)
         return image
+
+    def debug_shown(self):
+        """The debug drawings (skeletons, boxes, FPS) show by themselves on the results screen (DEBUG_IN_RESULTS),
+        and from DEBUG_SHOW_AT to DEBUG_SHOW_AT + DEBUG_SHOW_FOR seconds into the song, so the demo video
+        shows the tracking. The n key (next state) still only works with --debug."""
+        if config.DEBUG_IN_RESULTS and self.state_name == "results":
+            return True
+        if config.DEBUG_SHOW_AT is None or self.state_name != "playing":
+            return False
+        return config.DEBUG_SHOW_AT <= self.song.time() < config.DEBUG_SHOW_AT + config.DEBUG_SHOW_FOR
 
     def run(self):
         # A window without the toolbar and status bar: showing an image is about 2.5 ms faster.
@@ -164,18 +224,35 @@ class Game:
         # Painting a full-screen window takes about 25 ms (it is scaled up in software), and this way
         # that time is no longer added to every frame. The game itself still runs one frame at a
         # time: everything happens in step(), and step() never runs twice at the same time.
+        self.measure.game_ready = time.perf_counter()
+        run_start = time.perf_counter()
+        shown_size = None
+        if self.recorder is not None and self.duration is not None:
+            # the results fill the last RECORD_RESULTS_TIME of the video, however long the start took
+            self.song_deadline = run_start + self.duration - config.RECORD_RESULTS_TIME
         frame = self.camera.read()
         pending = self.step_thread.submit(self.step, frame) if frame is not None else None
         while pending is not None:
             frame_start = time.perf_counter()
             image = pending.result()                   # the frame that was calculated meanwhile
+            shown_index, shown_frame = frame.index, frame
             frame = self.camera.read()
             pending = self.step_thread.submit(self.step, frame) if frame is not None else None
             self.fps.update()
             if not window_sized:                       # start with the size of the camera image
                 cv2.resizeWindow(WINDOW_NAME, image.shape[1], image.shape[0])
                 window_sized = True
+            display_start = time.perf_counter()
+            shown_size = f"{image.shape[1]}x{image.shape[0]}"
             cv2.imshow(WINDOW_NAME, image)
+            self.measure.frame_shown(shown_index, (time.perf_counter() - display_start) * 1000)
+            if self.recorder is not None:
+                self.recorder.add(shown_frame.image, image)    # the webcam and the game, the same moment
+            if self.duration is not None and time.perf_counter() - run_start >= self.duration:
+                break                                  # --duration: the measurement is long enough
+            if (self.recorder is not None and self.results_since is not None
+                    and time.perf_counter() - self.results_since >= config.RECORD_RESULTS_TIME):
+                break                                  # --record: the video ends with RECORD_RESULTS_TIME of results
 
             # Wait for the rest of this frame's time, so the game never runs faster than MAX_FPS.
             # waitKey does the waiting, so the window stays responsive (and q / ESC still work).
@@ -187,6 +264,8 @@ class Game:
                 self.skip_state = True                 # step() switches the state before the next frame
         if pending is not None:
             pending.result()                           # let the frame that is still running finish
+        self.measure.finish(f"song: {self.song.title}, game image {shown_size}, "
+                            f"camera image {config.CAMERA_SIZE[0]}x{config.CAMERA_SIZE[1]} asked")
 
         self.song.stop()
         self.step_thread.shutdown()
@@ -195,3 +274,5 @@ class Game:
             self.segment_thread.shutdown()
         self.camera.release()
         cv2.destroyAllWindows()
+        if self.recorder is not None:
+            self.recorder.finish()                     # makes the MP4 files (some seconds)

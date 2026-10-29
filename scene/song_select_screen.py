@@ -35,9 +35,9 @@ def draw_song_select(frame, song, index, count, browse, choose_progress):
 
     draw_text(frame, f"Song {index + 1} / {count}", (center_x, top + int(card_h * 0.13)), 0.7 * u, GREY)
     draw_text(frame, song.title, (center_x, top + int(card_h * 0.38)), title_size(song.title, card_w - 40, u), WHITE, 3)
-    minutes, seconds = divmod(int(round(song.length)), 60)
+    minutes, seconds = divmod(int(round(song.play_length)), 60)
     draw_text(frame, f"{minutes}:{seconds:02d}   |   {song.bpm:g} bpm", (center_x, top + int(card_h * 0.62)), 0.9 * u, WHITE)
-    details = f"{len(song.moves)} moves   |   {song.duet_moves} duets   |   {song.gold_moves} gold"
+    details = f"{len(song.played_moves)} moves   |   {song.duet_moves} duets   |   {song.gold_moves} gold"
     draw_text(frame, details, (center_x, top + int(card_h * 0.82)), 0.75 * u, GOLD if song.gold_moves else GREY)
 
     # the arrows: left hand = previous song, right hand = next song

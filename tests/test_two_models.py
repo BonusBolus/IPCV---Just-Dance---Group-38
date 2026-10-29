@@ -2,8 +2,9 @@
 
 With OpenVINO 2026.4 on an AMD Ryzen AI laptop, a second OpenVINO Core crashed the whole program
 ("segfault in libze_loader.so"), so the game crashed on its first frame. use_one_openvino_core() fixes that.
-The test starts both models at the same time in two threads, like the first game frame, in a separate
-process: a crash there fails the test instead of stopping all tests.
+The test prepares the models like the game does (warm_up_models: one after the other; preparing them at the
+same time in two threads could hang), then runs both at the same time in two threads, like every game
+frame. It runs in a separate process: a crash or a hang there fails the test instead of stopping all tests.
 """
 import subprocess
 import sys
@@ -19,8 +20,10 @@ sys.path.insert(0, {str(ROOT)!r})
 import numpy as np
 from pose_tracking.pose_processing import PoseEstimator
 from background.segmentation import PersonSegmenter
+from game_logic.game import warm_up_models
 pose = PoseEstimator(CONFIDENCE_THRESHOLD=0.1, KEYPOINTS_SMOOTHING=0.7, MOTIONS_SMOOTHING=0.5)
 seg = PersonSegmenter()
+warm_up_models(pose, seg)
 image = np.zeros((720, 1280, 3), np.uint8)
 thread = threading.Thread(target=seg.find_people, args=(image,))
 thread.start()
@@ -34,7 +37,7 @@ print("both models work")
                      "needs both YOLO models and OpenVINO")
 class TwoModelsTests(unittest.TestCase):
     def test_pose_and_segmentation_in_one_program(self):
-        result = subprocess.run([sys.executable, "-c", SCRIPT], capture_output=True, text=True, timeout=300)
+        result = subprocess.run([sys.executable, "-c", SCRIPT], capture_output=True, text=True, timeout=120)
         self.assertEqual(result.returncode, 0, f"crashed (exit code {result.returncode}):\n{result.stderr[-2000:]}")
         self.assertIn("both models work", result.stdout)
 

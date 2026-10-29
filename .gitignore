@@ -236,3 +236,9 @@ build-env/
 
 # evaluation recordings (videos of people, large): keep them out of git, the results (.csv/.json) can go in
 tests/results/**/*.mp4
+
+# results of python main.py --measure
+measurements/
+
+# videos of python main.py --record
+recordings/

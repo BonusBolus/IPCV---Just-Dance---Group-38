@@ -7,10 +7,23 @@ NEXT: the coming move, visible from the countdown on. Its bar fills up until the
       starts, and the figure pulses a little on every beat.
 Gold moves get a gold border and the label "GOLD".
 Duet moves get a cyan border and the label "DUET", plus a figure in each player's colour.
+Animated moves get a magenta border, the step ("NOW! 2/4") and the name of the whole move; on the NOW card
+the figure moves to the next step during the second half of each step.
 """
 import cv2
-from scene.functions import DUET, GOLD, GREEN, GREY, WHITE, draw_bar, draw_text
-from scene.pose_figure import draw_pose
+from scene.functions import DUET, FLOW, GOLD, GREEN, GREY, WHITE, draw_bar, draw_text
+from scene.pose_figure import animated_pose, draw_pose
+
+
+def card_look(move, prefix, color):
+    """(label, border colour, caption) of a card. prefix: "NOW!" or "NEXT"; color: for a normal solo move."""
+    if getattr(move, "group", None) is not None:
+        steps = f"{move.step + 1}/{move.steps}" if prefix == "NOW!" else f"x{move.steps}"
+        return f"{prefix}  {steps}" + ("  GOLD" if move.gold else ""), FLOW, move.group_name
+    label = f"{prefix}  GOLD" if move.gold else prefix
+    if move.players == 2:
+        label += "  DUET"
+    return label, DUET if move.players == 2 else GOLD if move.gold else color, move.name
 
 
 def draw_move_cards(frame, now_move, now_progress, next_move, next_progress, beat_phase, flash,
@@ -24,31 +37,25 @@ def draw_move_cards(frame, now_move, now_progress, next_move, next_progress, bea
     if now_move is None and not show_next and next_move is not None:
         # between two moves (with the timeline): show the coming move already, big, so players
         # see what to do; the bar fills up until it starts, and it pulses on the beat
-        label = "NEXT  GOLD" if next_move.gold else "NEXT"
-        if next_move.players == 2:
-            label += "  DUET"
-        color = DUET if next_move.players == 2 else GOLD if next_move.gold else GREY
-        draw_card(frame, now_box, label, next_move.pose, next_move.name, next_progress, color,
+        label, color, caption = card_look(next_move, "NEXT", GREY)
+        draw_card(frame, now_box, label, next_move.pose, caption, next_progress, color,
                   zoom=1.0 + 0.08 * (1.0 - beat_phase), pose2=next_move.pose2 if next_move.players == 2 else None,
                   player_colors=player_colors)
     elif now_move is None:
         draw_card(frame, now_box, "NOW", None, "Get ready", None, GREY)
     else:
-        label = "NOW!  GOLD" if now_move.gold else "NOW!"
-        if now_move.players == 2:
-            label += "  DUET"
-        color = DUET if now_move.players == 2 else GOLD if now_move.gold else GREEN
-        draw_card(frame, now_box, label, now_move.pose, now_move.name, 1.0 - now_progress, color,
+        label, color, caption = card_look(now_move, "NOW!", GREEN)
+        pose = animated_pose(now_move.pose, now_move.next_pose, now_progress) \
+            if getattr(now_move, "group", None) is not None \
+            else now_move.pose
+        draw_card(frame, now_box, label, pose, caption, 1.0 - now_progress, color,
                   flash=flash, pose2=now_move.pose2 if now_move.players == 2 else None,
                   player_colors=player_colors)
 
     if show_next and next_move is not None:
-        label = "NEXT  GOLD" if next_move.gold else "NEXT"
-        if next_move.players == 2:
-            label += "  DUET"
-        color = DUET if next_move.players == 2 else GOLD if next_move.gold else GREY
+        label, color, caption = card_look(next_move, "NEXT", GREY)
         zoom = 1.0 + 0.08 * (1.0 - beat_phase)   # biggest on the beat: the pulse
-        draw_card(frame, next_box, label, next_move.pose, next_move.name, next_progress, color,
+        draw_card(frame, next_box, label, next_move.pose, caption, next_progress, color,
                   zoom=zoom, pose2=next_move.pose2 if next_move.players == 2 else None,
                   player_colors=player_colors)
     return frame
