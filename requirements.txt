@@ -1,6 +1,7 @@
-numpy
-opencv-python
-scipy
-ultralytics
-openvino
-pygame-ce
+# Tested with Python 3.11 on Ubuntu (see README, "Install")
+numpy==2.4.6
+opencv-python==5.0.0.93
+scipy==1.17.1
+ultralytics==8.4.189
+openvino==2026.4.1
+pygame-ce==2.5.8
