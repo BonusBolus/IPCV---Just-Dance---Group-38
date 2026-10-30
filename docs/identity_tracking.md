@@ -72,6 +72,10 @@ apart again:
 | `o` | occlusion | one player stands half behind the other or an object for about 2 s (10x) |
 | `r` | re-entry | one player walks out of the image and comes back on the same side (10x; other side: also press `s`) |
 
+Other keys: `e` or `SPACE` ends the trial, `s` means the players swapped sides, `k` says the IDs shown now are
+correct, `x` throws the current trial away, `p` pauses a video, and `q` or `ESC` stops and writes the results.
+All options: `python tests/eval_identity.py --help`.
+
 Repeat the runs for the impact factors: **lighting** (`--condition bright` / `dim`, the script also measures the
 brightness), **distance** (`--distance` in metres; the player height in pixels is measured too), and **subjects**
 (other pairs, similar shirts).
