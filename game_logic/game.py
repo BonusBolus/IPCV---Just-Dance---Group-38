@@ -116,6 +116,7 @@ class Game:
             self.state.exit(self)
         self.state_name = name
         self.state = self.states[name]
+        self.measure.event("state", state=name)
         self.state.enter(self)
         self.results_since = time.perf_counter() if name == "results" else None
         if name == "playing" and self.recorder is not None and self.song.has_audio:

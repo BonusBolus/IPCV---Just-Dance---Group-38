@@ -1,6 +1,6 @@
 """Results: scores and winner. Raise both hands (or wait) to go back to the song selection."""
 import config
-from game_logic.states.common import HoldGesture, State, anyone_hands_up
+from game_logic.states.common import HoldGesture, State, anyone_hands_up, measure
 from scene.results_screen import draw_results
 from scene.functions import draw_duet_bonus
 
@@ -21,6 +21,7 @@ class ResultsState(State):
         if waited < config.RESULTS_MIN_TIME:
             return None                                  # nobody skips the results by accident
         if self.gesture.update(anyone_hands_up(game), game.now):
+            measure(game).event("play_again", hold=round(game.now - self.gesture.started, 3))
             return "song_select"
         return None
 

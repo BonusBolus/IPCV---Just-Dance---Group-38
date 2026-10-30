@@ -60,3 +60,36 @@ Good to know when you write the report:
 
 Write down the conditions of every run: room, light, distance to the camera, number of people.
 Keep heavy runs short on a hot laptop: the laptop crashed before under long full load.
+
+## Replaying a recording (repeatable, with real players)
+
+A `webcam.mp4` of `--record` can be played into the game instead of the webcam:
+
+```
+python main.py --video recordings/<take>/webcam.mp4 --no-mirror --windowed --measure
+```
+
+(`--no-mirror`: the recording is mirrored already.) The game does all the work again, with the same two players, so
+the **times, FPS and detection rates** are valid. The **ratings and chains are not**: the song starts a fraction of a
+second earlier or later than in the live take, and with 0.6 s moves that is enough to be out of step. Also, a
+"play again" in the results works in a replay (it is off while recording), so a second song can start.
+The numbers of 29 Oct 2026 are in `docs/report_measurements.tex`.
+
+## Live test for Task 4 (recognition rate and false triggers)
+
+Accuracy needs people who do an action **on purpose**; the event log (`events.csv`, and the table in `summary.md`)
+counts what the game recognised. Record and measure in one go:
+
+```
+python main.py --measure --record --duration 300
+```
+
+| Test | How (2 players) | Write down |
+|---|---|---|
+| Browse | 10 x left hand up, 10 x right hand up (lower it in between) | recognised: count `browse_left` / `browse_right` |
+| Choose / ready | 10 x both hands up in the song selection and registration, also both players at the same time | `choose_song`, `ready` per player |
+| False triggers | 60 s standing and talking in the song selection, and normal dancing in the song | every event nobody meant |
+| Star | play 3 songs, try to grab every star | `star_grab` / `star_appear`, `after` = how fast |
+| Animated moves | follow the figure; once on purpose stand still | `chain_step`: `correct` and `flow` |
+
+Recognition rate = recognised / intended; false triggers = events nobody meant (watch the video to check).
