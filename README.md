@@ -4,6 +4,8 @@ Computer vision assignment: a Just Dance game for **2 players**, controlled only
 The game finds both players (YOLO pose), keeps track of who is who (shirt colour), grades their pose
 against the move on screen, and adds fun head effects (big heads, the player name on the forehead, and a crown for the player who is ahead).
 
+![The game: the timeline at the bottom, the NOW card on the right](docs/figures/screenshot_timeline_next.png)
+
 ## Install
 
 Tested with **Python 3.11** on Ubuntu 26.04, on a laptop without a GPU (the models run on the CPU with OpenVINO).
@@ -106,8 +108,8 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | `background/` | The Just Dance stage instead of the room: finds the players (person segmentation) and draws the stage |
 | `choreography/` | `poses.json` (all poses), one `.json` per song (the moves on the beats) and the music (`.ogg`). Every song `.json` here shows up in the song selection |
 | `tests/` | Unit tests (`python -m unittest discover -s tests`) and `eval_identity.py`, the identity-tracking evaluation with its results |
-| `docs/` | Documentation per part of the game (below) and the figures |
-| `tools/` | `make_zip.sh` makes the ZIP of the submission; `crash_log.py` logs temperatures, load and memory, to find the cause of a laptop crash |
+| `docs/` | Documentation per part of the game (below); `figures/` has the system overview and a screenshot |
+| `tools/` | `make_zip.sh` makes the ZIP of the submission |
 | `requirements.txt` | The Python packages and their versions |
 | `just_dance.spec` | The PyInstaller recipe for the executable |
 
@@ -116,7 +118,7 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | Document | About |
 |---|---|
 | [docs/game_structure.md](docs/game_structure.md) | The game states, the files, the song format, scoring |
-| [docs/scene_changes.md](docs/scene_changes.md) | The `scene/` folder: which file draws which part of the screen |
+| [docs/scene.md](docs/scene.md) | The `scene/` folder: which file draws which part of the screen |
 | [docs/face_tracking.md](docs/face_tracking.md) | Face detection, big heads, the crown and the player label |
 | [docs/identity_tracking.md](docs/identity_tracking.md) | How players are recognised by their shirt colour |
 | [docs/background_and_star.md](docs/background_and_star.md) | The stage behind the players and the bonus star |

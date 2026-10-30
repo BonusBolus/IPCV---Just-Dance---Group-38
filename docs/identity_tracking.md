@@ -1,86 +1,56 @@
-# Identity tracking with average colour: how to approach it
+# Identity tracking (Task 3)
 
-Goal of task 3: every person on screen keeps the same label ("Player 1", "Player 2") for the
-whole game, also when they move, cross each other or leave the frame for a moment.
+Every player keeps the same label ("Player 1", "Player 2") for the whole game, also when they move, cross each
+other or leave the image for a moment. Players are recognised by the **colour of their shirt**. The code is in
+[identity.py](../identity_tracking/identity.py).
 
-First version: **recognise players by the colour of their shirt.**
+Detection says **where** people are, identity tracking says **who** is who: the pose estimation (Task 2) finds the
+bodies, the tracker gives them a label.
 
-## 1. The idea in one picture
+## How it works
 
 ```
-frame ──► find people ──► boxes (who? unknown)
-                             │
-                             ▼
-                  shirt region of each box ──► average colour ──► compare with the
-                                                                  remembered colour
-                                                                  of each player
-                                                                        │
-                                                                        ▼
-                                                        closest colour = that player
+keypoints of every person ──► box per person ──► shirt region ──► average colour + histogram
+                                                                          │
+                     remembered colour, histogram and position of each player ──► cost table
+                                                                          │
+                                                          Hungarian algorithm: best pairing
 ```
 
-Detection says **where** people are. Identity tracking says **who** is who. That split is
-also in the assignment: task 2 finds the bodies, task 3 labels them.
+1. **`people_from_pose()`** puts a box around the keypoints of each person (YOLO, Task 2).
+2. **`torso_box()`** finds the shirt: between the shoulders and the hips (middle 90%), so arms, trousers and
+   background stay out. Hips not visible: the hips are estimated 1.3 shoulder widths below the shoulders. No
+   shoulders: a fixed part of the box.
+3. **`average_color()`** and **`color_histogram()`** describe the shirt (BGR).
+4. **`IdentityTracker.update()`** computes the cost of every person–player pair:
 
-## 2. Steps (do them in this order, test after each one)
+   `cost = colour distance + 0.1 × position distance (px) + 100 × histogram distance`
 
-Open [identity.py](../identity_tracking/identity.py) and run `python main.py`. The people come from
-the pose estimation in [pose_tracking/pose_processing.py](../pose_tracking/pose_processing.py) (task 2):
-`people_from_pose()` turns its keypoints into one box per person.
+   The histogram term (Bhattacharyya distance) is only used when the two players have similar colours (distance
+   below 30), for example a striped and a grey shirt. The Hungarian algorithm
+   (`scipy.optimize.linear_sum_assignment`) finds the best pairing overall, so two people never get the same label.
+   A pair is only accepted when the colour distance is below 60; otherwise the person is a stranger ("?") and gets
+   no effects.
+5. The remembered colour and histogram are updated slowly (`0.9 × old + 0.1 × new`): they follow small lighting
+   changes, but one bad frame does not spoil them.
 
-1. **`torso_box`**: shrink the person box to the shirt. Check it on screen: the thin white
-   box should sit on your chest.
-2. **`average_color`**: mean colour of the pixels in that box. The colour swatch next to the
-   label should turn into your shirt colour once step 4 works. You can also `print` it.
-3. **`color_distance`**: Euclidean distance between two (B, G, R) colours. Test it in a
-   Python shell: black vs. white should be about 441, a colour vs. itself 0.
-4. **`IdentityTracker.update`**: register new players, then match by smallest distance.
-   Test: walk in alone (you become Player 1), let a friend walk in (Player 2), swap places.
-   Do the labels swap too? They shouldn't.
+The first two people the tracker sees after `reset()` (in the Registration) become Player 1 and Player 2.
 
-## 3. Things to search / read about
+## Leaving, crossing and similar shirts
 
-| Topic | Why you need it |
-|---|---|
-| NumPy array slicing, `np.mean(axis=...)` | cut out the shirt region and average it |
-| BGR vs. RGB in OpenCV | OpenCV stores colours as B, G, R (not R, G, B) |
-| Euclidean distance, `np.linalg.norm` | how different two colours are |
-| Colour spaces: **HSV** and **CIELAB** (`cv2.cvtColor`) | RGB mixes colour and brightness; a shadow changes the RGB values a lot. In HSV the hue barely changes with lighting, and in Lab distances match what humans see. Good first improvement. |
-| Colour **histograms** (`cv2.calcHist`, `cv2.compareHist`) | the average of a striped shirt is a meaningless grey; a histogram keeps the distribution |
-| Nearest-neighbour matching / assignment problem, **Hungarian algorithm** (`scipy.optimize.linear_sum_assignment`) | prevents two people from getting the same label: it finds the best pairing overall |
-| Exponential moving average | updating the remembered colour slowly (step 4 in `update`) |
-| Pose estimation, YOLO-pose, COCO keypoints | how the pose estimation that provides your people works, in case the professor asks |
+- **Leave and re-enter.** A player who is not seen is not deleted. When they come back, anywhere in the image, their
+  shirt colour gives them their label again. After 0.5 s without detection the game shows a "lost" warning.
+- **Crossing.** The Hungarian algorithm keeps two players from getting the same label, and because the cost depends
+  mostly on colour, the labels are right again as soon as they are apart.
+- **Similar shirts** are the main weak point: then colour cannot tell the players apart. `colors_are_similar()`
+  makes the game show "Please wear different colours".
+- **Faces** (Task 1) are linked to a player when the face lies inside that player's box (the face closest to the
+  nose keypoint). Only those faces get the head effects.
 
-## 4. Pitfalls you will run into
+Limitations: the colours are compared in BGR, so shadows and lamps change them more than in HSV or Lab; there is no
+prediction (Kalman filter) while a player is hidden; positions are in pixels only (no depth).
 
-- **Similar clothes.** Two people in black shirts cannot be told apart by colour alone. For the
-  demo, ask players to wear different colours. Later, combine colour with position (step 5).
-- **Background in the box.** The box around the keypoints also contains background. That's why you use only the shirt
-  region, not the whole box.
-- **Lighting.** Walking under a lamp changes the colour. Updating the colour slowly helps, and
-  HSV or Lab helps more.
-- **Pose estimation misses a frame.** Then a player has no box that frame. Don't delete the player:
-  keep them in `self.players` and they get their label back when they are detected again.
-  That is the "leave and re-enter" requirement.
-- **Two boxes, same player.** With the simple nearest-colour rule both boxes can pick the same
-  player. The Hungarian algorithm fixes this.
-- **`max_distance`.** Too small and players become "?" under slightly different light; too
-  large and a stranger gets a player's label. Print the distances while testing to choose it.
-
-## 5. Next versions (after the simple one works)
-
-1. **Colour + position.** People move only a little between two frames (1/30 s). A cost like
-   `colour_distance + weight * position_distance` makes crossings much more stable.
-2. **Hungarian assignment** instead of "each box picks its closest player".
-3. **Boxes from the pose estimation (task 2).** Done: the shirt region is taken between the
-   shoulders and hips (`torso_box`), with a fixed part of the box as fallback.
-4. **Prediction (Kalman filter).** Predict where each player will be in the next frame, which
-   helps while players cross or are hidden for a moment.
-5. **Physical position.** The assignment asks for player positions in real units for task 4.
-   With the pinhole camera model, distance ≈ focal length × real shoulder width (~0.4 m) ÷
-   shoulder width in pixels.
-
-## 6. How to evaluate it (needed for the report)
+## Evaluation
 
 Use [tests/eval_identity.py](../tests/eval_identity.py). It runs the pose estimation and the tracker of the game,
 shows the measurements on screen (FPS, time per part, latency, accuracy, switches) and writes them to
