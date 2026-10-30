@@ -1,7 +1,7 @@
 # Measurements for the report
 
 The game can time every stage of every frame. Use it for the timing table of the report (Section 4) and the
-frame-rate, latency and resource numbers that the report template asks for.
+frame-rate and latency numbers.
 
 ## How to measure
 
@@ -20,6 +20,7 @@ or next to the program when you use the executable: `dist/JustDance/measurements
 | `table.tex` | the rows of the timing table of the report, ready to paste |
 | `frames.csv` | one row per shown frame: the time of every stage, the state, the number of people, faces and visible players |
 | `resources.csv` | once per second: CPU use, memory, CPU temperature |
+| `events.csv` | every action the game recognised (gestures, ratings, duets, chain steps, stars) with its time; `summary.md` has a table of them |
 
 The statistics use the frames of the **Playing** state (normal gameplay). The first 25 frames (1 s) are left out:
 OpenVINO prepares the models then, and that time is already in the start-up time.
@@ -48,19 +49,6 @@ Good to know when you write the report:
 - `latency` starts when the image arrives in the program. The camera itself and the screen add some more time.
   To measure that too (glass to glass): film a stopwatch on the screen and the real stopwatch together with a phone.
 
-## Suggested test plan (from the report template)
-
-| Test | How | Gives |
-|---|---|---|
-| Normal gameplay | 2 players, one full song, 3 times: `--measure` | the timing table, FPS (mean and low), latency, CPU, memory |
-| Lighting | the same, in a bright and in a dim room | influence of lighting on FPS, faces per frame, players visible |
-| Start-up time | start the game 3 times: `--measure --duration 10` | "game ready" and "first image" times |
-| Long run | 10 minutes, with `tools/crash_log.py` in a second terminal | freezes, memory over time, temperature, crashes |
-| Fast motion | 2 players move fast | `players_visible` and `faces` per frame: how often tracking is lost |
-
-Write down the conditions of every run: room, light, distance to the camera, number of people.
-Keep heavy runs short on a hot laptop: the laptop crashed before under long full load.
-
 ## Replaying a recording (repeatable, with real players)
 
 A `webcam.mp4` of `--record` can be played into the game instead of the webcam:
@@ -73,23 +61,6 @@ python main.py --video recordings/<take>/webcam.mp4 --no-mirror --windowed --mea
 the **times, FPS and detection rates** are valid. The **ratings and chains are not**: the song starts a fraction of a
 second earlier or later than in the live take, and with 0.6 s moves that is enough to be out of step. Also, a
 "play again" in the results works in a replay (it is off while recording), so a second song can start.
-The numbers of 29 Oct 2026 are in `docs/report_measurements.tex`.
+The numbers in the report (Section 4) come from three such replays and a 2-minute live run, on 29 Oct 2026.
 
-## Live test for Task 4 (recognition rate and false triggers)
-
-Accuracy needs people who do an action **on purpose**; the event log (`events.csv`, and the table in `summary.md`)
-counts what the game recognised. Record and measure in one go:
-
-```
-python main.py --measure --record --duration 300
-```
-
-| Test | How (2 players) | Write down |
-|---|---|---|
-| Browse | 10 x left hand up, 10 x right hand up (lower it in between) | recognised: count `browse_left` / `browse_right` |
-| Choose / ready | 10 x both hands up in the song selection and registration, also both players at the same time | `choose_song`, `ready` per player |
-| False triggers | 60 s standing and talking in the song selection, and normal dancing in the song | every event nobody meant |
-| Star | play 3 songs, try to grab every star | `star_grab` / `star_appear`, `after` = how fast |
-| Animated moves | follow the figure; once on purpose stand still | `chain_step`: `correct` and `flow` |
-
-Recognition rate = recognised / intended; false triggers = events nobody meant (watch the video to check).
+Keep heavy runs short on a hot laptop: the frame rate drops when the laptop gets hot.

@@ -1,386 +1,130 @@
-# Game structure plan
+# Game structure
 
-This plan explains how we turn the current `main.py` loop into a clear game with **game states**.
-It is written for the whole team. Each step at the end can be picked up by one person.
+How the game is built: the states, the files, the song format and the scoring. For the drawing see
+[scene.md](scene.md), for the head effects [face_tracking.md](face_tracking.md), for who is who
+[identity_tracking.md](identity_tracking.md).
 
-## 1. Goals
+## The states
 
-- The game has clear **states**: Registration, Countdown, Playing, Results. There is no main menu: the game starts in Registration.
-- Players control the game with **gestures only** (no keyboard, no mouse).
-- The game is always for **2 players**.
-- **One song with audio.** The poses follow the music.
-- When a player is **lost** during the song, the game shows a warning. The song keeps playing.
-- The score is **fair**: a faster computer does not give more points.
-- **Clear files.** Every file has one clear job, and every state has its own file.
-
-## 2. The states
+The game is always for **2 players** and is controlled with **gestures only**. The `q` / `ESC` key only closes the
+window (a safety exit).
 
 ```mermaid
 stateDiagram-v2
     [*] --> SongSelect
-    SongSelect --> Registration: someone raises both hands (1 s)
-    Registration --> Countdown: both players raise both hands (1 s)
-    Countdown --> Playing: after 3 seconds
+    SongSelect --> Registration: both hands up (0.5 s)
+    Registration --> Countdown: both players ready
+    Countdown --> Playing: after 2 s
     Playing --> Results: song ends
-    Results --> SongSelect: someone raises both hands, or after 20 s
+    Results --> SongSelect: both hands up, or after 20 s
 ```
 
-| State | What the players see | What the game checks | How to leave |
+| State | What the players see | Actions | How to leave |
 |---|---|---|---|
-| **Song selection** | The selected song in a card: title, length, tempo, moves / duets / gold moves, arrows for the hands. A music preview plays | Is someone holding one hand up (browse) or both hands up (choose)? | Both hands up 1 s → Registration |
-| **Registration** | Camera image, "Player 1" / "Player 2" labels in their colour on the forehead, a progress bar or "READY" above the head | Are 2 players found? Is each player holding hands up? | Both players ready → Countdown |
-| **Countdown** | Big "3", "2", "1", "Dance!" and the timeline: the first move already slides toward the hit line | Only time | After 3 s → Playing (music starts) |
-| **Playing** | The NOW card, the timeline (coming moves slide to a hit line), score bar, a pose rating that pops above each player ("Perfect", "Good", ...) and a warning when a player is lost | Song clock, current move, grading, lost players | Song ends → Results |
-| **Results** | Final scores, the winner (or "Draw") | Hands up, or time | Hands up 1 s, or 20 s → Song selection |
+| **Song selection** | The selected song in a card (title, length, tempo, moves / duets / gold moves), with a music preview from 30% of the song | One hand up 0.3 s: previous / next song (lower the hand before the next step). Both hands up 0.5 s: choose | Choose → Registration |
+| **Registration** | "Player 1" / "Player 2" in their colour, a progress bar or "READY" above each head | Both hands up 0.5 s: ready. A player who leaves the image is not ready any more | Both ready → Countdown |
+| **Countdown** | "3, 2, 1, Dance!" and the timeline: the first move already slides in | none | After 2 s → Playing (music starts) |
+| **Playing** | The timeline, the NOW card, the score bar, the ratings, the bonus star, "Chain x*n*", the duet bonus and a warning when a player is lost | Dance poses, duets, animated moves, grabbing the star | Song ends → Results |
+| **Results** | The scores and the winner (or "Draw!") | Both hands up 0.5 s, from 3 s on | Play again or 20 s → Song selection |
 
-### Rules for each state
+All times are in seconds, not frames, so the game works the same on a slow and a fast laptop. They are in
+`config.py` (`HOLD_TIME`, `BROWSE_HOLD_TIME`, `COUNTDOWN_TIME`, `RESULTS_MIN_TIME`, `RESULTS_MAX_TIME`).
 
-**Song selection** (`states/song_select.py`, `scene/song_select_screen.py`)
-- The game **starts** here, and comes back here after Results. Anyone in front of the camera can choose.
-- Every `.json` in `choreography/` (except `poses.json`) is a song, sorted by title. `config.SONG_PATH` is selected first.
-- **Left hand up** (on the left of the screen) = previous song, **right hand up** = next song. Hold it for
-  `BROWSE_HOLD_TIME` (0.5 s); then lower the hand before the next step. "Left" and "right" come from the side
-  of the nose where the wrist is, not from YOLO's names (those are swapped in the mirrored image).
-- The selected song plays a **music preview** from `PREVIEW_START` (30% of the song).
-- **Both hands up** for 1 s = choose. `exit()` stops the preview; `game.song` is the chosen song.
+- "Hands up" means the wrists are above the nose. "Left" and "right" come from the side of the nose where the
+  wrist is (YOLO's left/right names are swapped in the mirrored image).
+- Registration starts with `tracker.reset()`: old players and scores are removed. When the two players wear similar
+  colours, the game shows "Please wear different colours".
+- A registered player who is not seen for 0.5 s (`LOST_TIME`) is **lost**: "Player 2 lost - step back in!". The
+  song keeps going; a lost player gets no points until found again. The 0.5 s keeps the warning from flickering.
+- In **every** state the game draws the stage, the big heads, the player labels, the crown for the leader and the
+  glow in the player colours at the screen edges.
 
-**Registration**
-- Comes after the song selection.
-- When we enter this state, we call `tracker.reset()`. This removes old players and old scores.
-- The tracker gives Player 1 and Player 2 to the first two people it sees.
-- A player is **ready** after holding both hands up for 1 s. If the player leaves the image, "ready" is removed again.
-- Extra help: when `tracker.colors_are_similar()` is True, show "Please wear different colours".
-- The hands-up progress bar is drawn above the player's head (where the crown would be). See [face_tracking.md](face_tracking.md).
-
-**In every state** the game draws big heads and the label "Player 1" / "Player 2" on the forehead. The player who is ahead in score also gets a gold crown (the label is then on the crown), plus a glow in the player colours at the screen edges. See [face_tracking.md](face_tracking.md).
-
-**Countdown**
-- No grading yet. It gives players time to get into position.
-- The NEXT card already shows the first move, so players can get ready.
-- At the end of the countdown, the music starts.
-
-**Playing**
-- The **song clock** comes from the audio player, not from `time.time()`. Then the poses always stay in sync with the music.
-- Each move has a start and an end. Between moves there can be a rest. See section 5.
-- The NOW card shows the active move, the NEXT card the move after it.
-- Grading: see section 6.
-- **Lost player:** a registered player who is not visible for more than 0.5 s is "lost".
-  - Show "Player 2 lost — step back in!" in the colour of that player.
-  - The song continues. The lost player gets no points until found again.
-  - We wait 0.5 s before showing the warning, so it does not flicker when the tracker misses one frame.
-
-**Results**
-- Show both scores and the winner.
-- Wait at least 3 s before gestures work, so nobody skips the screen by accident.
-- "Raise both hands to play again" → Song selection. After that, the next players register again.
-
-### Gesture: "hands up"
-
-There is one gesture for the whole game: **both wrists above the nose**.
-To avoid accidental starts, the player must **hold** it for 1 s. Show a small progress bar while the player holds it.
-The hold time is measured in **seconds**, not in frames. Then it works the same on every computer.
-
-The **q** / **ESC** key still closes the window. This is only a safety exit, not a game control.
-
-## 3. File structure
-
-We add new code files (one per state) and remove 3 old ones. Folders that already work stay the same.
+## The files
 
 ```
-main.py                       # SMALLER: only starts the game (about 20 lines)
-config.py                     # NEW: all settings in one place
-camera.py                     # same
+main.py                     # reads the command line, starts the game
+config.py                   # all settings and paths
+camera.py                   # webcam / video input in its own thread (always the newest image)
 game_logic/
-    game.py                   # NEW: Game class, runs the loop and switches states
-    states/                   # NEW: one file per state
-        common.py             #   State base class, "hands up" gesture, move cards helper
-        song_select.py        #   SongSelectState
-        registration.py       #   RegistrationState
-        countdown.py          #   CountdownState
-        playing.py            #   PlayingState (+ the rating)
-        results.py            #   ResultsState
-    song.py                   # NEW: reads the song file, audio, song clock, current + next move
-    bonus_star.py             # NEW: the bonus star: when it comes, where it floats, who grabs it
-    motion.py                 # NEW: motion per player and the direction check of animated moves
-    pose_grading.py           # same grading (for now), only the Pencil pose added
-scene/                        # one file per part of the screen (docs/scene_changes.md)
-    scene.py                  #   the original Scene class (title, score bar) + draw_ratings()
-    functions.py              #   the original text helpers + colours and small building blocks
-    pose_figure.py            #   NEW: a pose as a stick figure
-    move_cards.py             #   NEW: the NOW / NEXT cards
-    registration_screen.py    #   NEW: the Registration screen
-    results_screen.py         #   NEW: the Results screen
-    star.py                   #   NEW: draws the bonus star and the "+100" burst
-background/                   # NEW: the Just Dance stage instead of the room (docs/background_and_star.md)
-    segmentation.py           #   which pixels belong to the players (yolo26n-seg)
-    stage.py                  #   the stage: gradient, light beams, floor glow, floating lights
-face_tracking/                # head effects (docs/face_tracking.md)
-    face_tracking.py          #   find faces (YuNet) and smooth them over time
-    head_filter.py            #   big heads
-    game_effects.py           #   crown, player label on the crown, which face belongs to which player
-choreography/
-    poses.json                # the ONLY place where poses are defined
-    song_1.json               # CHANGED: new format (section 5)
-    *.ogg                     # the music of each song (.ogg: about 8x smaller than .wav)
-identity_tracking/, pose_tracking/   # same
-
-REMOVED:
-game_loop/game_loop.py        # replaced by game_logic/song.py
-game_logic/track_manager.py   # not used, loads a file that does not exist
-choreography/choreography.json  # old frame-by-frame recording, not used
+    game.py                 # the Game class: runs the loop, owns the shared parts, switches states
+    states/                 # one file per state; common.py: the State base class and the hold gesture
+    song.py                 # reads a song file; the music, the song clock, the current and next move
+    pose_grading.py         # the score 0-100 of one pose (joint angles)
+    motion.py               # motion per player and the direction check of animated moves
+    bonus_star.py           # the bonus star: when it comes, where it floats, who grabs it
+    measurements.py         # --measure: the time of every stage
+    recorder.py             # --record: the webcam and the game as videos
+pose_tracking/              # YOLO pose: the keypoints of every person (Task 2)
+identity_tracking/          # who is Player 1 and who is Player 2 (Task 3)
+face_tracking/              # faces, big heads, crown, player labels (Task 1)
+background/                 # the stage instead of the room: person segmentation + the stage (Task 5)
+scene/                      # draws the screens (Task 5)
+choreography/               # poses.json and one .json + .ogg per song
 ```
 
-### Who does what
+The main rule: **the states decide, the scene draws.** A state never draws pixels itself, and the `scene/` files
+contain no game rules.
 
-| File | Job | Does NOT do |
-|---|---|---|
-| `main.py` | Read command line arguments, create `Game`, call `game.run()` | Any game logic |
-| `config.py` | Numbers and paths: hold time, lost time, countdown time, file paths | Logic |
-| `game.py` | Own the shared parts (camera, pose, tracker, grader, song, scene). Each frame: read camera → find faces (second thread) and players → update state → head effects → draw → show | Decide what happens in a state |
-| `face_tracking/*.py` | Find faces, and draw the head effects (big heads, crown, player label) | Game rules |
-| `states/*.py` | Decide **what** happens in each state, and when to switch. One file per state; `common.py` has the parts that more states use. | Draw pixels itself |
-| `song.py` | Load the song, play audio, give the song time, the current move and the next move | Grading |
-| `pose_grading.py` | Give a score 0–100 for one pose (the existing `PoseGrader`, not changed for now) | Keep totals |
-| `scene/*.py` | Decide **how** things look on screen. One file per part of the screen. | Game rules |
+One frame in `Game.step()`: read the camera → face detection, pose estimation and segmentation at the same time
+(three threads) → identity tracking → `state.update()` (the game rules) → the stage and the head effects →
+`state.draw()` → show.
 
-The main rule: **states decide, the scene draws.** Then we can change the look without breaking the game, and the other way around.
+## Song files
 
-## 4. How the code fits together
-
-This is a short sketch to show the idea. It is not the final code: the real `Game.step()` also runs face tracking in a second thread and draws the head effects (see [face_tracking.md](face_tracking.md)).
-
-```python
-# game_logic/states/common.py
-class State:
-    def enter(self, game):          # called once when we switch to this state
-        pass
-
-    def update(self, game):         # called every frame, returns the name of the next state or None
-        return None
-
-    def draw(self, game, image):    # called every frame, returns the image to show
-        return image
-
-
-# game_logic/states/countdown.py
-class CountdownState(State):
-    def enter(self, game):
-        self.start = game.now
-
-    def update(self, game):
-        if game.now - self.start >= config.COUNTDOWN_TIME:
-            return "playing"
-        return None
-
-    def draw(self, game, image):
-        seconds_left = config.COUNTDOWN_TIME - (game.now - self.start)
-        return draw_big_text(image, str(math.ceil(seconds_left)))     # from scene/functions.py
-```
-
-```python
-# game_logic/game.py
-class Game:
-    def __init__(self, camera):
-        self.camera = camera
-        self.pose_estimator = PoseEstimator(...)
-        self.tracker = IdentityTracker(max_players=2)
-        self.pose_grader = PoseGrader()
-        self.song = Song(config.SONG_PATH)
-        self.scene = Scene()
-        self.states = {
-            "registration": RegistrationState(), "countdown": CountdownState(),
-            "playing": PlayingState(), "results": ResultsState(),
-        }
-        self.players = {}
-        self.now = 0.0
-        self.change_state("registration")
-
-    def change_state(self, name):
-        self.state = self.states[name]
-        self.state.enter(self)
-
-    def run(self):
-        while True:
-            frame = self.camera.read()
-            if frame is None:
-                break
-            self.now = frame.time
-            keypoints, _ = self.pose_estimator.process(frame.image)
-            self.players = self.tracker.update(frame.image, people_from_pose(keypoints))
-
-            next_state = self.state.update(self)
-            if next_state:
-                self.change_state(next_state)
-
-            image = self.state.draw(self, frame.image.copy())
-            cv2.imshow("Just Dance", image)
-            if cv2.waitKey(1) & 0xFF in (ord("q"), 27):
-                break
-```
-
-## 5. Choreography
-
-### What we have now
-
-`song_1.json` puts a move name on a beat, and the poses are in `poses.json`. Problems: a move has no end, and the pose scale does not match the grader.
-
-The frame-by-frame recording `choreography.json` (from branch `test-structure`) is **not used**. It is 1.5 MB, cannot be edited by hand, and its move names and left/right sides do not match `poses.json`. We remove it.
-
-### New design
-
-- **One format:** a small song file that uses **beats**, plus the pose library `poses.json`.
-- **Static poses.** The screen shows the pose. It does not show a moving dancer.
-- **The next pose is always visible**, also during the countdown. Players can get ready in time.
-- **Gold moves** give double points.
-
-### Song file: `song_1.json`
+Every `.json` in `choreography/` (except `poses.json`) is a song in the song selection, sorted by title.
+`config.SONG_PATH` (Rasputin) is selected first. The poses are only defined in `poses.json`.
 
 ```json
 {
-    "title": "Song 1",
-    "audio": "song_1.ogg",
-    "bpm": 120,
+    "title": "Rasputin",
+    "audio": "rasputin.ogg",
+    "bpm": 127,
+    "move_bpm": 381,
     "offset": 0.0,
     "moves": [
-        { "beat": 4,  "pose": "cactus", "beats": 2 },
-        { "beat": 8,  "pose": "t_pose", "beats": 2 },
-        { "beat": 12, "pose": "pencil", "beats": 2, "gold": true }
+        { "beat": 8,  "pose": "wave_right", "beats": 4 },
+        { "beat": 16, "pose": "raise_linked_hands", "beats": 4 },
+        { "beat": 24, "poses": ["conductor_right", "conductor_left", "conductor_right", "conductor_left"],
+          "name": "Conductor" },
+        { "beat": 60, "pose": "pencil", "gold": true }
     ]
 }
 ```
 
+`raise_linked_hands` is a duet pose; the last line is a made-up example of a gold move.
+
 | Field | Meaning |
 |---|---|
-| `audio` | Music file, in the same folder as the song file |
-| `bpm` | Beats per minute of the music |
-| `move_bpm` | Optional. The tempo of the **moves**: higher means shorter moves that come more often. `bpm` stays the tempo of the music (the beat pulse and the song selection). Default: the same as `bpm`. A multiple of `bpm` (for example 2 × 132 = 264) keeps the moves on the beat of the music. |
+| `audio` | The music file, in the same folder (`.ogg`: about 8x smaller than `.wav`) |
+| `bpm` | Tempo of the music (the beat pulse, the song selection) |
+| `move_bpm` | Optional tempo of the **moves**: higher = shorter moves that come more often. Use a multiple of `bpm` to stay on the beat. Default: `bpm` |
 | `offset` | Seconds of music before beat 0 |
-| `beat` | The beat where the player must **be in** the pose. The move becomes active here. |
-| `pose` | Name of a pose in `poses.json` |
-| `beats` | How long the player must hold the pose. Default: 2. |
-| `poses` | Instead of `pose`: a list of poses, an **animated move** (see `docs/animated_moves.md`). Every pose is one step. |
-| `name` | The name of an animated move on screen, for example "Kazachok". |
-| `step_beats` | Music beats per step of an animated move. Default: 1. |
-| `gold` | Optional. `true` = double points. |
+| `beat` | The beat where the player must **be in** the pose |
+| `pose` | A pose from `poses.json`. A duet pose (with `keypoints_2` and `interaction` in `poses.json`) gives each player their own pose |
+| `beats` | How long the pose is held. Default: 2 |
+| `poses`, `name`, `step_beats` | Instead of `pose`: an **animated move**, see [animated_moves.md](animated_moves.md) |
+| `gold` | `true` = double points |
 
-Beat to seconds: `seconds = offset + beat * 60 / bpm` (with `move_bpm` instead of `bpm` when the song has it).
+Beat to seconds: `offset + beat * 60 / move_bpm`. When the music is longer than the moves, the moves start again.
+The song clock comes from the music player, so the moves always stay in sync with the music. Without a music file
+a normal timer is used.
 
-**The moves start again** when the music is longer than the moves: after the last move, the first move comes
-again one normal step later (the usual time between two moves), and so on until the music ends. The game reads
-the length of the music from the `.ogg` file.
-Because we use beats, all moves stay on the music. If the music starts a bit late, we only change `offset`.
+The file is **checked when it is loaded**: an unknown pose or overlapping moves stop the game at start-up with a
+clear message (`rasputin.json move 7: pose "pencl" not found`), never in the middle of a song.
 
-**Test music:** branch `test-structure` has `assets/song.wav`. A script made this file, so there is no copyright problem. It is 120 BPM and 64 s, the same as `song_1`. It is in the repo as `choreography/song_1.ogg`. All music is stored as `.ogg` (Ogg Vorbis): about 8x smaller than `.wav`, with the same length and timing. `choreography/*.wav` is in `.gitignore`.
+## Scoring
 
-### Inside `song.py`
+- Every frame of a move (from its start to 0.3 s after its end, `GRADE_GRACE`) is graded with `PoseGrader`: the
+  joint angles of the player are compared with those of the pose, and the mean error *e* (degrees) gives
+  `score = 100 * exp(-(e / 30) ^ 3)`. Angles do not change with body size or distance to the camera.
+- Before grading, left and right are swapped (`MIRROR_SWAP` in `states/playing.py`), because the camera image is
+  mirrored.
+- The points of a move are the **70th percentile** of its frame scores (`SCORE_PERCENTILE`): the pose must be held,
+  one lucky frame is not enough. Gold moves count double.
+- Rating: **Perfect** (≥ 85), **Good** (≥ 65), **OK** (≥ 40), **Miss** (< 40), shown next to the score bar.
+- **Duet:** both players score at least 50 and the interaction in `poses.json` is met (for example hands close
+  together): +25% for both.
+- **Animated moves:** a chain bonus for correct steps in a row, see [animated_moves.md](animated_moves.md).
+- **Bonus star:** +100 for the first hand that touches it, see [background_and_star.md](background_and_star.md).
 
-```python
-@dataclass
-class Move:
-    name: str        # "cactus", shown on screen
-    pose: dict       # {"nose": (x, y), ...}, from poses.json
-    start: float     # seconds: the move becomes active
-    end: float       # seconds: the move is over
-    gold: bool
-
-
-class Song:
-    def start(self): ...                 # start the music
-    def stop(self): ...
-    def time(self): ...                  # song time in seconds, from the audio clock
-    def current_move(self): ...          # the active Move, or None between moves
-    def next_move(self): ...             # the next Move that is not active yet, or None
-    def is_finished(self): ...
-```
-
-- Use `pygame.mixer.music` for the audio (add `pygame` to `requirements.txt`). It plays `.wav`, `.ogg` and `.mp3`. `get_pos()` tells us how far the music is.
-  `sounddevice` is already installed, but it cannot open music files by itself.
-- If the audio file is missing, `time()` uses a normal timer. Then we can still test without sound.
-- The song is finished when the music stops. Without music: 2 s after the last move.
-- **Check the file when loading**, not during the song. If a pose name is not in `poses.json`, or two moves overlap, stop with a clear message, like: `song_1.json move 7: pose "pencl" not found`.
-  Then a typo never crashes the game in the middle of a song.
-
-### On screen: the move cards
-
-Two cards in a corner of the screen:
-
-```
- +-----------------+   +-----------+
- |      NOW!       |   |   NEXT    |
- |                 |   |           |
- |     (pose)      |   |  (pose)   |
- |                 |   |           |
- | ███████░░░░░░░░ |   | ▓▓▓▓▓░░░░ |
- +-----------------+   +-----------+
-   hold: bar gets       get ready: bar fills,
-   empty                pulses on every beat
-```
-
-| Card | When | Looks |
-|---|---|---|
-| **NEXT** | Always, from the start of the Countdown | Smaller card. The bar fills up until the move starts. The card pulses a little on every beat, so players feel the rhythm. |
-| **NOW** | While a move is active | Big card with a bright border and the text "NOW!". The bar gets empty while the player holds the pose. |
-| **NOW** (between moves) | No active move | Dark card with "Get ready". |
-| Gold move | NOW or NEXT card | Gold border and the label "GOLD". |
-
-When a move starts, the NEXT card moves into the NOW place with a short flash. Then the player clearly sees: "this one counts now".
-
-## 6. Fair scoring
-
-**Now:** every frame adds a score. At 30 FPS a player gets twice as many points as at 15 FPS.
-
-**Grading stays the same for now.** We keep `pose_grading.py` (the `PoseGrader` class) as it is. The game calls
-`pose_grader.grade_pose(player["keypoints_raw"], move.key)`, where `move.key` is the pose name from the song file (`"cactus"`).
-
-Because the grader is not changed:
-- **Left and right are swapped before grading** (`MIRROR_SWAP` in `states/playing.py`). YOLO names left and right by how the body looks, so in our mirrored camera image the player's left arm is called `right_*`. The grader's poses have `left_*` on the left of the screen. Without the swap, even a perfect pose scored below 20 (always "Miss").
-- The grader had only `cactus` and `t_pose`. We **added `pencil`** to its pose list (only new pose data, same style as the other two). If a song uses a pose that the grader does not know, those moves give no points, and the game prints a warning at start-up.
-- **The grader's reference poses are measured on a real player** (only the numbers in `pose_grading.py` changed, not the grading code). Knees and ankles are `None`: our poses do not use the legs, and the webcam often cannot see them. Before, YOLO guessed the invisible legs at hip height, and those 4 points alone pulled every score down to about 27. The arm positions come from a webcam recording (made symmetric). Now the right pose scores about 89–92 ("Perfect") and a wrong pose 25–53. The grader still has its own pose list next to `poses.json` (section 7, item 3).
-- Later idea: compare **limb angles** instead of positions. Angles do not change with body size or distance, so no scaling is needed. The branch `test-structure` does this in `gameplay/scorer.py`.
-
-**New: points once per move.**
-
-1. Players need some time to react. So we grade a move from `start` to `end + 0.3 s`.
-2. During that time, grade every frame, but only remember the **best score** of each player.
-3. When the time is over, add that best score to the total of the player. **Gold move: × 2.**
-4. Show a rating for 1 s: **Perfect** (≥ 85), **Good** (≥ 65), **OK** (≥ 40), **Miss** (< 40).
-5. A lost player keeps the best score from before getting lost. If the player was lost for the whole move, the score is 0.
-
-The scene shows the total score as a whole number.
-
-## 7. Cleanup of the current code
-
-| # | Problem | Fix |
-|---|---|---|
-| 1 | In `main.py`, `draw_pose_comparison()` contains a copied part of `process_frame()`. It uses names that do not exist there (`frame`, `players`, `start_time`). | Remove this part. If we want debug drawings, add a `--debug` flag and draw keypoints / face outline in `scene.py`. |
-| 2 | Grading always uses `"cactus"`, not the pose on screen. | Grade `move.key` of the current move. |
-| 3 | Poses are defined twice: in `pose_grading.py` and in `poses.json`. The `pencil` pose is only in `poses.json`, so grading it would crash. | Pencil is added to the grader. **Later**: one pose list for the screen and the grader. |
-| 4 | The two pose lists use a different scale (hips at y = 2 in the grader, y = 1.5 in `poses.json`). | The grader's poses now have real proportions. **Later**: one pose list for both, or switch to limb angles (section 6). |
-| 5 | `_normalize_keypoints()` divides by shoulder width and torso height. When those points are missing, this is 0 → bad scores or errors. | **Later**. For now, `states/playing.py` skips scores that are not a normal number (`inf` / `nan`). |
-| 6 | `grade_pose()` prints every score. | **Later**: remove the `print`. |
-| 7 | `game_loop.py` opens `choreography/poses.json` with a relative path. It breaks when you start the game from another folder. | Build all paths in `config.py` from the project folder. |
-| 8 | The song starts 5 s after the program starts (`time.time()`). | Use the states and the song clock. |
-| 9 | `track_manager.py` is not used and loads `assets/moves.json`, which does not exist. | Delete it. |
-
-## 8. Task split for the team
-
-Do step 1 first. After that, steps 2 to 5 can be done **at the same time** by different people.
-
-| Step | Task | Files | Depends on |
-|---|---|---|---|
-| **1** | **Skeleton:** `config.py`, `Game`, 4 empty states (one file each) that switch with a timer, small `main.py`. The game runs from Registration to Results with placeholder text. | `main.py`, `config.py`, `game.py`, `states/` | – |
-| **2** | **Song + audio:** `Move` and `Song`, check the file when loading, rewrite `song_1.json` in the new format, copy `song.wav`, `pygame` in requirements. Remove `game_loop/` and `choreography.json`. | `song.py`, `song_1.json`, `requirements.txt` | 1 |
-| **3** | **Gestures + registration:** `hands_up()`, `HoldGesture`, the Registration / Results rules, the lost player check. | `states/common.py`, `registration.py`, `results.py`, `playing.py` | 1 |
-| **4** | **Scoring:** use the existing `PoseGrader`, score per move, gold × 2, rating text. `pose_grading.py` stays the same. | `states/playing.py`, `game.py` | 1 |
-| **5** | **Screens:** one file per part: `registration_screen.py`, `results_screen.py`, `move_cards.py`, `pose_figure.py`, building blocks in `functions.py`, `draw_ratings()` in `scene.py`. See [scene_changes.md](scene_changes.md). | `scene/` | 1 |
-| **6** | **Cleanup + test:** items 1 and 9 from section 7. Play the full game once with 2 people from start to end. Update the README with how to play. | all | 2–5 |
-
-### Done when
-
-- The game goes through all states using only gestures.
-- Music and poses stay in sync for the whole song.
-- The next pose is visible from the countdown on, and it is always clear which move counts now.
-- A typo in a song file gives a clear error at start-up, not a crash during the song.
-- When one player walks away, the warning shows within about 0.5 s, and the song continues.
-- The final score is about the same at 15 FPS and at 30 FPS.
-- `main.py` contains no game logic.
+Points are given once per move, so a faster laptop does not give more points.

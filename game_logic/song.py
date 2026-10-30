@@ -1,6 +1,6 @@
 """The song: which pose the players must do at which time, and the music.
 
-Song file format: see choreography/song_1.json and docs/game_structure.md, section 5.
+Song file format: see docs/game_structure.md, "Song files".
 The moves are on beats, the poses come from choreography/poses.json.
 "bpm" is the tempo of the music (the beat pulse); the optional "move_bpm" is the tempo of the moves:
 higher means shorter moves that come more often. When the music is longer than the moves, the moves
