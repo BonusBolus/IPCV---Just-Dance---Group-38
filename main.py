@@ -26,7 +26,7 @@ from game_logic.recorder import Recorder
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--camera", type=int, default=0)
+    parser.add_argument("--camera", type=int, default=0, help="number of the webcam (default 0)")
     parser.add_argument("--video", help="use a video file instead of the webcam")
     parser.add_argument("--no-mirror", action="store_true",
                         help="do not mirror the image (for a webcam.mp4 of --record: it is mirrored already)")

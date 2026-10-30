@@ -14,7 +14,7 @@ follow step by step, for example the Kazachok: left leg out, right leg out, left
 - When the song is loaded, the animated move becomes one move per step (`song.animated_move()`). Each step knows
   the pose before and after it.
 - The poses must be in `poses.json` and must be solo poses (no duets).
-- Rasputin has four animated moves: Conductor, Kazachok, Wave and Disco.
+- Rasputin uses four different animated moves: Conductor, Kazachok, Wave and Disco.
 
 ## On the screen
 

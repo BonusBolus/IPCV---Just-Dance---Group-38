@@ -292,7 +292,7 @@ def ms_stats(values):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    parser.add_argument("--camera", type=int, default=0)
+    parser.add_argument("--camera", type=int, default=0, help="number of the webcam (default 0)")
     parser.add_argument("--video", help="a recorded video instead of the webcam")
     parser.add_argument("--condition", default="normal", help="name of the test condition, e.g. bright, dim")
     parser.add_argument("--subjects", default="", help="who played, e.g. \"A,B\"")

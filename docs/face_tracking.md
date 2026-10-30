@@ -23,11 +23,11 @@ camera image
    ├──► face thread:  get_face_properties() ──► smooth_face_properties() ──► faces
    └──► main thread:  pose (YOLO) ──► IdentityTracker ──► players ──► state.update()
 
-image = copy of the camera image
+image = the stage with the players (background/, see background_and_star.md)
 game.heads = faces_for_players(players, faces)    # 1. which face belongs to which player
 player_faces = faces in game.heads that are not None
 enlarge_heads(image, player_faces)                # 2. big heads, only for players
-add_crown(image, [face of crown_holder()])        # 3. crown, only for the player who leads by 10 %
+add_crown(image, [face of crown_holder()])        # 3. crown, only for the player who is ahead
 add_player_label(image, "Player N", face, colour) # 4. label on the crown, for every player with a face
 scene.draw_edge_effects(...)                      # glow + sparkles at the screen edges
 state.draw(game, image)                           # the screen of the current state (uses game.heads)
@@ -40,9 +40,10 @@ state.draw(game, image)                           # the screen of the current st
 
 ## 1. Finding faces: `face_tracking.py`
 
-`get_face_properties(frame)` uses **YuNet** (`cv2.FaceDetectorYN`, needs OpenCV 4.5.4 or newer). The input size is set to
-the size of each frame, so faces far away are not made smaller first. Faces with a score below `SCORE_THRESHOLD = 0.6`
-are skipped. Each face is a dict:
+`get_face_properties(frame)` uses **YuNet** (`cv2.FaceDetectorYN`, needs OpenCV 4.5.4 or newer). It looks at a copy
+of the image that is 640 px wide (`FACE_DETECT_WIDTH`): the players' faces are big enough for that, it is about 3x
+faster than 1280 px, and the result is even steadier. The boxes are scaled back to the full image. Faces with a score
+below `SCORE_THRESHOLD = 0.6` are skipped. Each face is a dict:
 
 ```python
 {
@@ -78,12 +79,9 @@ are the same as before. A webcam that cannot do 1080p just gives its own size, a
 
 ## 3. The crown: `add_crown()`
 
-**Who gets the crown:** only the player whose score is **at least 10 % higher** than the other player's score
-(`crown_holder()` in `game_logic/game.py`, the 10 % is `CROWN_LEAD` in `config.py`). So:
-
-- both scores 0 (Registration, Countdown, the start of the song): **nobody** has the crown;
-- scores close together (for example 500 and 460): **nobody** has the crown;
-- player 1 has 0 points and player 2 has some: player 2 has the crown.
+**Who gets the crown:** the player with the most points (`crown_holder()` in `game_logic/game.py`). When the
+scores are equal, for example both 0 in the Registration, the Countdown and at the start of the song, **nobody** has
+the crown.
 
 The crown goes to the leader's face (see section 4), sized from the face and tilted with the head. Its shape is set by constants at
 the top of `game_effects.py`:
@@ -110,8 +108,8 @@ with the crown.
 
 ## 4. The player label: `faces_for_players()` + `add_player_label()`
 
-The label used to hang above the **box of the body** from the IdentityTracker. That box changes size with arms and
-legs, so the label floated around. Now it hangs on the **face**, which is much calmer.
+The label hangs on the **face**, not on the box of the body: that box changes size with the arms and legs, so a
+label on it would float around.
 
 **Which face belongs to which player** (`faces_for_players(players, faces)`):
 
@@ -124,8 +122,7 @@ Faces that belong to nobody get **no effects at all**: no big head, no crown, no
 
 - **bystanders**: a third person, or someone in the background, is not a player;
 - **false detections**: YuNet sometimes sees a "face" in a pattern, a shadow or an object. Such a face is almost never
-  inside a player's box, near the nose that YOLO found. Without this filter, the smoothing even kept such a face on
-  screen for up to 5 frames.
+  inside a player's box, near the nose that YOLO found.
 
 **The label** (`add_player_label(frame, text, face, colour)`):
 
@@ -153,7 +150,6 @@ back to the top of the player's box, so the player still sees them.
 | which faces are found (small or unclear faces) | `SCORE_THRESHOLD` in `face_tracking.py` |
 | the crown size, place or shape | the `CROWN_*`, `BAND_*`, `TIP_TOP` constants in `game_effects.py` |
 | the crown colours | `add_crown()` |
-| how far ahead a player must be for the crown | `CROWN_LEAD` in `config.py` |
 | who gets the crown (the rule itself) | `crown_holder()` in `game_logic/game.py` |
 | the label text size or outline | `add_player_label()` |
 | the progress bar / "READY" above the crown | `scene/registration_screen.py` |

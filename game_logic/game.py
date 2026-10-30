@@ -50,7 +50,7 @@ def warm_up_models(pose_estimator, segmenter=None):
 
 
 def crown_holder(players):
-    """Id of the player who leads by at least config.CROWN_LEAD (10%), or None.
+    """Id of the player with the most points, or None when the scores are equal.
     Nobody gets the crown while both scores are 0 (for example during Registration)."""
     (id_1, player_1), (id_2, player_2) = sorted(players.items())
     if player_1["score"] > player_2["score"]:

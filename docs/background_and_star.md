@@ -42,7 +42,7 @@ Now and then a gold star floats across the screen. **The first player who touche
 
 | Rule | Setting |
 |---|---|
-| A star comes about every 20 s, plus or minus 5 s, so it is a surprise | `STAR_INTERVAL`, `STAR_JITTER` |
+| For the demo, the stars come at fixed times in the song: 6 s and 21 s, between the animated moves. With `STAR_TIMES = None` a star comes every `STAR_INTERVAL` seconds, plus or minus `STAR_JITTER` (for example 20 s ± 5 s, so it is a surprise) | `STAR_TIMES`, `STAR_INTERVAL`, `STAR_JITTER` |
 | It floats from one side to the other in 5 s; the next one comes from the other side | `STAR_TIME` |
 | It floats at **hand height**: between just above the heads and the shoulders, and gently up and down. It follows the players when they move | (from the players' boxes and shoulders) |
 | A wrist closer than 58 px (at 720p) grabs it. When both players touch it, the closest hand wins | `STAR_REACH` |
