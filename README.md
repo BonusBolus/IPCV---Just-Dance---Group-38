@@ -6,14 +6,26 @@ against the move on screen, and adds fun head effects (big heads, the player nam
 
 ## Install
 
+Tested with **Python 3.11** on Ubuntu 26.04, on a laptop without a GPU (the models run on the CPU with OpenVINO).
+
 ```
-pip install -r requirements.txt
+python3.11 -m venv .venv
+.venv/bin/pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
+.venv/bin/pip install -r requirements.txt
 ```
 
-Needs OpenCV 4.5.4 or newer (for the YuNet face detector). The face model is in the repository
-(`face_tracking/face_detection_yunet_2023mar.onnx`). The YOLO models `yolo26n-pose.pt` (pose) and `yolo26n-seg.pt`
-(the players for the stage, about 7 MB) are not: Ultralytics downloads them the first time you start the game, and
-the game converts them to OpenVINO once (a few seconds).
+On Windows use `.venv\Scripts\pip` and `.venv\Scripts\python`. The second line installs the CPU version of
+PyTorch (needed by Ultralytics); without it, pip takes the CUDA version, which is about 4 GB bigger. All versions are
+in `requirements.txt`.
+
+Models:
+- the face model is in the repository: `face_tracking/face_detection_yunet_2023mar.onnx` (YuNet, OpenCV Zoo, 2023 March version);
+- the YOLO models `yolo26n-pose.pt` (pose) and `yolo26n-seg.pt` (person segmentation for the stage) are in the
+  ZIP of the submission. When they are missing, Ultralytics 8.4.189 downloads them the first time you start the game
+  (from the Ultralytics GitHub releases, about 7 MB each).
+
+The first start converts both YOLO models to OpenVINO (the `*_openvino_model/` folders, a few seconds); after that
+the game starts faster.
 
 ## Run
 
@@ -25,16 +37,26 @@ python main.py --debug          # debug drawings (boxes, FPS, state); n jumps to
 python main.py --windowed       # a window instead of full screen (q or ESC closes the game)
 ```
 
+For testing and the report:
+
+```
+python main.py --measure                 # time every stage; results in measurements/<date_time>/
+python main.py --measure --duration 120  # ... and stop after 120 s
+python main.py --record                  # record the webcam and the game as videos in recordings/<date_time>/
+python main.py --video recordings/<date_time>/webcam.mp4 --no-mirror   # play a recording into the game again
+python -m unittest discover -s tests     # run the tests
+```
+
 `q` or `ESC` closes the game. That is only a safety exit: the game itself is played with gestures.
 
 ## How to play
 
 1. **Song selection:** raise your **left hand** for the previous song and your **right hand** for the next
-   song (hold it for half a second, then lower it again). You hear a preview of the song. Raise **both hands**
-   for 1 s to choose it.
+   song (hold it for 0.3 s, then lower it again). You hear a preview of the song. Raise **both hands**
+   for 0.5 s to choose it.
 2. **Registration:** stand in front of the camera, both players. Each player gets a colour and the label
    "Player 1" / "Player 2" on the forehead. Wear different coloured shirts, so the game does not mix you up.
-3. **Raise both hands** (wrists above your nose) and hold them for 1 s. The bar above your head fills up.
+3. **Raise both hands** (wrists above your nose) and hold them for 0.5 s. The bar above your head fills up.
    When both players are ready, the countdown starts.
 4. **Playing:** the coming moves slide to the hit line at the bottom; be in the pose when it reaches the line,
    and copy the pose on the **NOW** card. Between moves the card already shows the **NEXT** move. Each move gives
@@ -83,6 +105,11 @@ PyInstaller makes a program for the system you build on: build on Windows for Wi
 | `scene/` | Draws the screens: title, scores, move cards, song selection, registration, results and the bonus star |
 | `background/` | The Just Dance stage instead of the room: finds the players (person segmentation) and draws the stage |
 | `choreography/` | `poses.json` (all poses), one `.json` per song (the moves on the beats) and the music (`.ogg`). Every song `.json` here shows up in the song selection |
+| `tests/` | Unit tests (`python -m unittest discover -s tests`) and `eval_identity.py`, the identity-tracking evaluation with its results |
+| `docs/` | Documentation per part of the game (below) and the figures |
+| `tools/` | `make_zip.sh` makes the ZIP of the submission; `crash_log.py` logs temperatures, load and memory, to find the cause of a laptop crash |
+| `requirements.txt` | The Python packages and their versions |
+| `just_dance.spec` | The PyInstaller recipe for the executable |
 
 ## Documentation
 

@@ -242,3 +242,6 @@ measurements/
 
 # videos of python main.py --record
 recordings/
+
+# the submission ZIP (tools/make_zip.sh)
+Group38_JustDance.zip
