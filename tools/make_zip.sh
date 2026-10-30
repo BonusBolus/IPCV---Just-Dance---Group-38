@@ -17,6 +17,7 @@ if [ -n "$(git status --porcelain)" ]; then
 fi
 
 git archive --format=tar --prefix="$NAME/" HEAD | tar -x -C "$STAGE"
+rm -f "$STAGE/$NAME/.gitignore"      # only needed for git, not in the submission
 
 for model in yolo26n-pose.pt yolo26n-seg.pt; do
     if [ ! -f "$model" ]; then
